@@ -1,6 +1,6 @@
 {
-  "name": "Nest Notes",
-  "short_name": "Nest Notes",
+  "name": "おうち",
+  "short_name": "おうち",
   "description": "两个人的共享家庭收纳清单",
   "start_url": "./",
   "scope": "./",
