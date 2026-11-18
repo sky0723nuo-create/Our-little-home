@@ -42,6 +42,26 @@ jobs:
           name: home-v2-1-browser-screenshots
           path: preview-*.png
           if-no-files-found: ignore
+      - name: Build standalone preview HTML
+        run: |
+          npx --yes esbuild app.js --bundle --format=iife --target=es2020 --outfile=preview.bundle.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("index.html").read_text()
+          css=Path("styles.css").read_text()
+          js=Path("preview.bundle.js").read_text().replace("</script>","<\\/script>")
+          html=re.sub(r'<link rel="manifest"[^>]*>',"",html)
+          html=re.sub(r'<link rel="icon"[^>]*>',"",html)
+          html=re.sub(r'<link rel="stylesheet"[^>]*>',"<style>"+css+"</style>",html)
+          html=re.sub(r'<script type="module"[^>]*></script>',"<script>"+js+"</script>",html)
+          Path("HOME-V2.1-PREVIEW.html").write_text(html)
+          PY
+      - name: Upload standalone preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-open-in-browser
+          path: HOME-V2.1-PREVIEW.html
       - name: Upload preview website artifact
         uses: actions/upload-artifact@v4
         with:
