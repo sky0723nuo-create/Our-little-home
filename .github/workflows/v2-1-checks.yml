@@ -1,0 +1,77 @@
+name: HOME V2.1 Checks
+
+on:
+  push:
+    branches: [feature/home-v2-1]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check tests/planner.test.mjs
+          node --check planner-v2.js
+          node --check home-extras.js
+          node --check wellness.js
+      - name: Run planner regression suite
+        run: node --test tests/planner.test.mjs
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 &
+          sleep 2
+          node tests/browser-smoke.mjs
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-browser-screenshots
+          path: preview-*.png
+          if-no-files-found: ignore
+      - name: Build standalone preview HTML
+        run: |
+          npx --yes esbuild app.js --bundle --format=iife --target=es2020 --outfile=preview.bundle.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html=Path("index.html").read_text()
+          css=Path("styles.css").read_text()
+          js=Path("preview.bundle.js").read_text().replace("</script>","<\\/script>")
+          html=re.sub(r'<link rel="manifest"[^>]*>',"",html)
+          html=re.sub(r'<link rel="icon"[^>]*>',"",html)
+          html=re.sub(r'<link rel="stylesheet"[^>]*>',lambda m:"<style>"+css+"</style>",html)
+          html=re.sub(r'<script type="module"[^>]*></script>',lambda m:"<script>"+js+"</script>",html)
+          Path("HOME-V2.1-PREVIEW.html").write_text(html)
+          PY
+      - name: Upload standalone preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-open-in-browser
+          path: HOME-V2.1-PREVIEW.html
+      - name: Upload preview website artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-static-preview
+          path: |
+            index.html
+            app.js
+            planner-v2.js
+            wellness.js
+            home-extras.js
+            styles.css
+            manifest.webmanifest
+            icon.svg

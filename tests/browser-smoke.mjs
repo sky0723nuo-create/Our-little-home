@@ -1,0 +1,45 @@
+import {chromium,devices} from "playwright";
+import assert from "node:assert/strict";
+const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+const issues=[];
+for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"mobile",...devices["iPhone 13"]}]) {
+ const ctx=await browser.newContext({...device,baseURL:"http://127.0.0.1:8765"});
+ const page=await ctx.newPage();
+ page.on("pageerror",e=>issues.push(device.name+": "+e.message));
+ await page.goto("/");
+ await page.waitForSelector(".v2-bottom");
+ const menu=await page.locator(".v2-bottom .nav").count();
+ assert.equal(menu,5,device.name+": exactly five bottom tabs");
+ assert.match(await page.locator("main").innerText(),/Welcome HOME/);
+ await page.locator('[data-act="nav"][data-view="planner"]').last().click();
+ assert.match(await page.locator("main").innerText(),/Life Admin/);
+ await page.locator('[data-v2="new-task"]').click();
+ await page.locator('#v2-task-form [name="name"]').fill("Pay parking fine");
+ await page.locator('#v2-task-form [name="due"]').fill("2026-12-01");
+ await page.locator('#v2-task-form button[type="submit"]').click();
+ assert.match(await page.locator("main").innerText(),/Pay parking fine/);
+ await page.locator(".header-icon-btn").click();
+ assert.match(await page.locator("main").innerText(),/Welcome HOME/);
+ await page.locator(".v2-bottom .v2-add-nav").click();
+ assert.equal(await page.locator(".v2-quick-menu button").count(),7);
+ await page.locator('[data-act="quick-add-choice"][data-type="pet"]').click();
+ await page.locator('#v2-pet-form [name="name"]').fill("Mochi");
+ await page.locator('#v2-pet-form button:not([type="button"])').click();
+ assert.match(await page.locator("main").innerText(),/Mochi/);
+ await page.locator('[data-act="nav"][data-view="shopping"]').last().click();
+ await page.locator('[data-act="shop-tab"][data-value="subs"]').click();
+ await page.locator('[data-v2="new-sub"]').click();
+ await page.locator('#v2-sub-form [name="name"]').fill("Cat litter");
+ await page.locator('#v2-sub-form [name="nextDate"]').fill("2026-12-12");
+ await page.locator('#v2-sub-form button:not([type="button"])').click();
+ assert.match(await page.locator("main").innerText(),/Cat litter/);
+ if(device.name==="mobile"){
+   const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,inner:window.innerWidth}));
+   assert.ok(width.scroll<=width.inner+2,"mobile layout overflow "+JSON.stringify(width));
+ }
+ await page.screenshot({path:"preview-"+device.name+".png",fullPage:true});
+ console.log("PASS: "+device.name+" navigation, task, pet, subscriptions, responsive layout");
+ await ctx.close();
+}
+await browser.close();
+assert.deepEqual(issues,[],"No uncaught browser JavaScript errors");

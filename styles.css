@@ -82,3 +82,35 @@ body[data-theme="lavender"]{--page:#f8f7fc;--ink:#4c475b;--accent:#9581b5;--acce
 .well-title strong{font-size:16px}
 .home-mini-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:650px){.home-mini-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom .nav{font-size:9px}.bottom .nav small{font-size:8px}.bottom .nav .ui-icon{width:19px;height:19px}}
+
+/* HOME V2.1 preview */
+.header-shortcuts{display:flex;gap:8px;align-items:center}
+.header-icon-btn{display:flex;align-items:center;justify-content:center;width:41px;height:41px;border:1px solid var(--line);border-radius:13px;background:var(--surface);color:var(--accent)}
+.v2-welcome{padding:16px 0 10px}.v2-welcome h2{font-size:26px;letter-spacing:-.6px;margin:5px 0}.v2-welcome p{color:var(--muted);font-size:13px;margin:0}
+.v2-upcoming{padding:18px;border:1px solid var(--line);border-radius:20px;background:var(--surface);margin:14px 0}
+.v2-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 17px}
+.v2-tabs button{border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:var(--surface);color:var(--ink);font-size:12px}
+.v2-tabs button.selected{background:var(--hero);border-color:var(--accent);color:var(--accent);font-weight:700}
+.v2-tabs button small{display:block;font-size:10px;font-weight:400;margin-top:3px}
+.v2-calm{border:1px dashed var(--line);background:var(--surface);border-radius:15px;padding:26px 16px;text-align:center;color:var(--accent);font-size:14px;margin:10px 0}
+.v2-calm small{display:block;margin-top:5px;color:var(--muted);font-size:12px}
+.v2-task{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:13px;margin-bottom:9px}
+.v2-task-body{flex:1;min-width:0;overflow-wrap:anywhere}.v2-task-body strong{font-size:14px}
+.v2-task-done{width:28px;height:28px;flex:0 0 28px;color:var(--accent);background:var(--hero);border:1px solid var(--line);border-radius:9px;font-weight:700}
+.v2-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 22px}
+.v2-overview-grid button{padding:14px 8px;background:var(--surface);border:1px solid var(--line);border-radius:15px;display:flex;flex-direction:column;gap:4px;align-items:center;color:var(--ink)}
+.v2-overview-grid strong{font-size:21px;color:var(--accent)}.v2-overview-grid small{color:var(--muted);font-size:11px}
+.v2-inventory-grid{margin:15px 0}.v2-cat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0}
+.v2-cat-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 12px;display:flex;flex-direction:column;align-items:center;gap:9px;color:var(--ink)}
+.v2-cat-card small{color:var(--muted);font-size:12px}.v2-cat-icon{font-size:38px}
+.v2-more{margin:14px 0;border:1px solid var(--line);border-radius:13px;padding:13px;background:var(--surface)}
+.v2-more summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:13px}
+.v2-more[open] summary{margin-bottom:12px}
+.v2-checkbox{display:flex;align-items:center;gap:10px;margin:13px 0;font-size:13px}
+.v2-checkbox input{width:18px;height:18px}
+.v2-quick-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.v2-quick-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:5px;border:1px solid var(--line);border-radius:13px;padding:12px;background:var(--surface);color:var(--ink);text-align:left}
+.v2-quick-menu button span{font-size:21px}.v2-quick-menu button strong{font-size:13px}.v2-quick-menu button small{font-size:11px;color:var(--muted)}
+.v2-bottom .v2-plus{width:35px;height:35px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:white;font-size:27px}
+.v2-bottom .v2-add-nav .nav-icon{height:35px}
+@media(max-width:650px){.v2-overview-grid{gap:6px}.v2-overview-grid button{padding:12px 2px}.v2-bottom .nav{font-size:10px}.v2-bottom .nav small{font-size:9px}.v2-task{gap:6px;padding:11px 8px;flex-wrap:wrap}.v2-task .care-badge{font-size:10px}.planner-tabs button{padding:9px}.v2-welcome h2{font-size:24px}}
