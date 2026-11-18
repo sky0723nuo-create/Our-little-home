@@ -1,7 +1,7 @@
 {
-  "name": "おうち",
-  "short_name": "おうち",
-  "description": "两个人的共享家庭收纳清单",
+  "name": "HOME",
+  "short_name": "HOME",
+  "description": "Shared home inventory · 家庭收纳清单",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
