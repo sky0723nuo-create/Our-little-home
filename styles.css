@@ -32,3 +32,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .theme-option[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--hero)}
 .theme-swatch{width:16px;height:16px;display:inline-block;vertical-align:middle;border-radius:50%;margin-right:7px}
 body[data-theme="lavender"]{--page:#f8f7fc;--ink:#4c475b;--accent:#9581b5;--accent-hover:#79649c;--line:#e7e1ee;--surface:#fffefe;--hero:#f0ebf9;--muted:#8b829a}
+
+/* Oak theme: neutralize colorful emoji tiles and decorative icons */
+.tile i{filter:grayscale(1) sepia(.35);opacity:.82}
+.empty .emoji{filter:grayscale(1) sepia(.35);opacity:.75}
+.heart{color:#9a8064}
+
+.tile i{filter:none;color:var(--accent);font-family:Georgia,serif;font-style:normal;font-size:31px;font-weight:400}
