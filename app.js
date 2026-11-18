@@ -58,10 +58,10 @@ function header(){
 function home(){
  const recent=state.items.slice().sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||"")).slice(0,4);
  return '<div class="tiles">'+[
- ["items","📦","物品清单","查看家里所有小东西"],
- ["locations","🗄️","收纳空间","房间、柜子与收纳盒"],
- ["stock","🧴","消耗品","库存与补货提醒"],
- ["unplaced","🧸","待整理","之后再决定放哪里"]
+ ["items","▧","物品清单","查看家里所有小东西"],
+ ["locations","▤","收纳空间","房间、柜子与收纳盒"],
+ ["stock","◫","消耗品","库存与补货提醒"],
+ ["unplaced","◇","待整理","之后再决定放哪里"]
  ].map(([v,icon,label,sub])=>'<button class="tile" data-act="nav" data-view="'+v+'"><i>'+icon+'</i><strong>'+label+'</strong><span>'+sub+'</span></button>').join("")+'</div>'+
  '<div class="section-head"><h2>最近添加 ♡</h2><button class="secondary" data-act="add-item">＋ 添加物品</button></div>'+
  (recent.length?'<div class="cards">'+recent.map(itemCard).join("")+'</div>':empty("还没有添加物品","先从一根充电线、一个小盒子开始吧。"))+
