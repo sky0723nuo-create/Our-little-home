@@ -10,6 +10,8 @@ for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"m
  await page.waitForSelector(".v2-bottom");
  const menu=await page.locator(".v2-bottom .nav").count();
  assert.equal(menu,5,device.name+": exactly five bottom tabs");
+ assert.equal(await page.locator(".v2-bottom [data-view=home]").count(),0);
+ assert.equal(await page.locator(".v2-bottom [data-view=collection]").count(),1);
  assert.match(await page.locator("main").innerText(),/Welcome HOME/);
  await page.locator('[data-act="nav"][data-view="planner"]').last().click();
  assert.match(await page.locator("main").innerText(),/Life Admin/);
@@ -21,11 +23,30 @@ for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"m
  await page.locator(".header-icon-btn").click();
  assert.match(await page.locator("main").innerText(),/Welcome HOME/);
  await page.locator(".v2-bottom .v2-add-nav").click();
- assert.equal(await page.locator(".v2-quick-menu button").count(),7);
+ assert.equal(await page.locator(".v2-quick-menu button").count(),8);
  await page.locator('[data-act="quick-add-choice"][data-type="pet"]').click();
  await page.locator('#v2-pet-form [name="name"]').fill("Mochi");
  await page.locator('#v2-pet-form button:not([type="button"])').click();
  assert.match(await page.locator("main").innerText(),/Mochi/);
+ await page.locator('[data-act="nav"][data-view="collection"]').last().click();
+ assert.match(await page.locator("main").innerText(),/Our Finds/);
+ await page.locator('[data-find="add"]').click();
+ await page.locator('#find-form [name="name"]').fill("Matcha Latte");
+ await page.locator('#find-form [name="type"]').selectOption("cafe");
+ await page.locator('#find-form [name="rating_together"]').selectOption("4");
+ await page.locator('#find-form [name="rating_me"]').selectOption("5");
+ await page.locator('#find-form [name="rating_jason"]').selectOption("3");
+ await page.locator('#find-form button[type="submit"], #find-form button.primary').click();
+ await page.locator(".find-detail").waitFor();
+ assert.match(await page.locator(".find-detail").innerText(),/Matcha Latte/);
+ await page.locator('[data-find="experience"]').click();
+ await page.locator('#find-experience-form [name="orders"]').fill("Matcha Latte - too sweet");
+ await page.locator('#find-experience-form [name="rating_jason"]').selectOption("2");
+ await page.locator('#find-experience-form button.primary').click();
+ await page.locator(".find-visit").waitFor();
+ assert.match(await page.locator(".find-visit").innerText(),/too sweet/);
+ await page.locator(".header-icon-btn").click();
+ assert.match(await page.locator("main").innerText(),/Welcome HOME/);
  await page.locator('[data-act="nav"][data-view="shopping"]').last().click();
  await page.locator('[data-act="shop-tab"][data-value="subs"]').click();
  await page.locator('[data-v2="new-sub"]').click();
@@ -38,7 +59,7 @@ for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"m
    assert.ok(width.scroll<=width.inner+2,"mobile layout overflow "+JSON.stringify(width));
  }
  await page.screenshot({path:"preview-"+device.name+".png",fullPage:true});
- console.log("PASS: "+device.name+" navigation, task, pet, subscriptions, responsive layout");
+ console.log("PASS: "+device.name+" navigation, Collection, ratings, experiences, tasks, pets, subscriptions");
  await ctx.close();
 }
 await browser.close();
