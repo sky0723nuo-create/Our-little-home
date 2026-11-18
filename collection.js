@@ -122,9 +122,11 @@ export function createCollection({getState,save,esc,toast,uuid}){
    reader.readAsDataURL(file);
   });
  }
- async function submit(e){
+ function submit(e){
   if(!["find-form","find-experience-form"].includes(e.target.id))return false;
-  e.preventDefault();const f=new FormData(e.target),now=new Date().toISOString();
+  e.preventDefault();processSubmission(e).catch(err=>toast("保存失败："+err.message));return true;
+ }
+ async function processSubmission(e){const f=new FormData(e.target),now=new Date().toISOString();
   if(e.target.id==="find-form"){
    const name=String(f.get("name")||"").trim(),type=String(f.get("type")||"product");
    if(!name||!labels[type]){toast("请填写名称和类型");return true;}
@@ -134,8 +136,10 @@ export function createCollection({getState,save,esc,toast,uuid}){
    let picture=existing?.photo||"";
    if(f.has("removePhoto"))picture="";
    try{picture=(await readPhoto(f.get("photo")))||picture;}catch(err){toast(err.message);return true;}
+   const link=String(f.get("link")||"").trim();
+   if(link&&!/^https?:\/\//i.test(link)){toast("地图或网页链接需要以 https:// 开头");return true;}
    const record={...existing,id:existing?.id||uuid(),type,name,brand:String(f.get("brand")||"").trim(),shop:String(f.get("shop")||"").trim(),
-    location:String(f.get("location")||"").trim(),link:String(f.get("link")||"").trim(),photo:picture,price,notes:String(f.get("notes")||"").trim(),
+    location:String(f.get("location")||"").trim(),link,photo:picture,price,notes:String(f.get("notes")||"").trim(),
     revisit:String(f.get("revisit")||""),itemId:String(f.get("itemId")||""),ratings:{together:score(f,"together"),me:score(f,"me"),jason:score(f,"jason")},
     events:existing?.events||[],createdAt:existing?.createdAt||now,updatedAt:now};
    getState().finds=existing?items().map(x=>x.id===record.id?record:x):[...items(),record];
