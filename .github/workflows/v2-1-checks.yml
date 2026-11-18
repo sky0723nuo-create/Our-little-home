@@ -1,0 +1,41 @@
+name: HOME V2.1 Checks
+
+on:
+  push:
+    branches: [feature/home-v2-1]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check tests/planner.test.mjs
+          node --check planner-v2.js
+          node --check home-extras.js
+          node --check wellness.js
+      - name: Run planner regression suite
+        run: node --test tests/planner.test.mjs
+      - name: Upload preview website artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-static-preview
+          path: |
+            index.html
+            app.js
+            planner-v2.js
+            wellness.js
+            home-extras.js
+            styles.css
+            manifest.webmanifest
+            icon.svg
