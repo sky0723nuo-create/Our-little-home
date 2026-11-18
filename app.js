@@ -1,5 +1,8 @@
 const STORAGE_KEY = "our-little-home-v1";
 const app = document.getElementById("app");
+const themeStorageKey = "nest-notes-theme";
+let theme = localStorage.getItem(themeStorageKey) === "lavender" ? "lavender" : "wood";
+document.body.dataset.theme = theme;
 const toastEl = document.getElementById("toast");
 const uuid = () => crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2);
 const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -49,8 +52,8 @@ function currentItems() {
 }
 function header(){
  const total=state.items.length,unplaced=state.items.filter(i=>!i.locationId).length,low=state.items.filter(i=>i.consumable&&Number(i.quantity)<=Number(i.minQuantity||0)).length;
- return '<header class="top"><div class="brand"><div class="eyebrow">OUR LITTLE HOME ♡</div><h1>我们的家 🏡</h1><div class="sub">每件小东西，都有属于自己的位置。</div></div><button class="pill" data-act="nav" data-view="settings">⚙️ 设置</button></header>'+
- '<section class="hero"><div class="hero-line"><div><h2>Hi, welcome home ♡</h2><p>从一个小盒子开始，慢慢整理我们的家。</p></div><div class="heart">♡</div></div><div class="search"><input id="global-search" placeholder="搜索物品、分类或存放位置..." value="'+pretty(searchTerm)+'" aria-label="搜索物品"></div><div class="stats"><div class="stat"><b>'+total+'</b><span>件物品条目</span></div><div class="stat"><b>'+unplaced+'</b><span>待整理</span></div><div class="stat"><b>'+low+'</b><span>待补货</span></div></div></section>';
+ return '<header class="top"><div class="brand"><div class="eyebrow">NEST NOTES</div><h1>小窝手记</h1><div class="sub">每件小东西，都有属于自己的位置。</div></div><button class="pill" data-act="nav" data-view="settings">⚙️ 设置</button></header>'+
+ '<section class="hero"><div class="hero-line"><div><h2>A place for everything.</h2><p>从一个小盒子开始，慢慢整理我们的家。</p></div><div class="heart">♡</div></div><div class="search"><input id="global-search" placeholder="搜索物品、分类或存放位置..." value="'+pretty(searchTerm)+'" aria-label="搜索物品"></div><div class="stats"><div class="stat"><b>'+total+'</b><span>件物品条目</span></div><div class="stat"><b>'+unplaced+'</b><span>待整理</span></div><div class="stat"><b>'+low+'</b><span>待补货</span></div></div></section>';
 }
 function home(){
  const recent=state.items.slice().sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||"")).slice(0,4);
@@ -82,7 +85,7 @@ function locationsPage(){
  (activeLocation?'<div class="section-head"><h2>直接放在这里的物品</h2><button class="secondary" data-act="add-item" data-location="'+activeLocation+'">＋ 添加</button></div>'+(items.length?'<div class="cards">'+items.map(itemCard).join("")+'</div>':empty("暂无物品","你也可以将物品放到这个位置里。")):'')+'</div>';
 }
 function settingsPage(){
- return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前基础版的数据仅保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>关于 Our Little Home</h3><p class="hint">版本 1.0 · 先收纳，再慢慢完善。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
+ return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前基础版的数据仅保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>关于 Nest Notes</h3><p class="hint">版本 1.0 · 先收纳，再慢慢完善。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
 }
 function navBar(){return '<nav class="bottom" aria-label="主导航">'+[['home','⌂','首页'],['items','▦','物品'],['locations','▤','收纳'],['stock','◫','库存']].map(([v,icon,label])=>'<button class="nav '+(view===v?'active':'')+'" data-act="nav" data-view="'+v+'"><i>'+icon+'</i>'+label+'</button>').join("")+'</nav>';}
 function render(focusSearch=false){
@@ -155,6 +158,7 @@ document.addEventListener("click",e=>{
  if(e.target.id==="modal-overlay"){modal=null;render();return;}
  const b=e.target.closest("[data-act]");if(!b)return;
  const {act,id,view:target,delta,parent,location}=b.dataset;
+ if(act==="theme"){theme=b.dataset.theme==="lavender"?"lavender":"wood";localStorage.setItem(themeStorageKey,theme);document.body.dataset.theme=theme;render();toast("配色已切换");}
  if(act==="nav"){view=target;searchTerm="";locationFilter="";categoryFilter="";render();}
  if(act==="add-item"){modal={type:"item",location:location||null};renderModal();}
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
