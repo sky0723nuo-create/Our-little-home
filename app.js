@@ -50,22 +50,29 @@ function currentItems() {
  });
  return items.sort((a,b)=>sortBy==="qty"?Number(a.quantity)-Number(b.quantity):a.name.localeCompare(b.name,"zh"));
 }
+function uiIcon(name,size=30){const p={
+inventory:'<rect x="4" y="7" width="16" height="14" rx="2" fill="currentColor" fill-opacity=".13"/><path d="M4 9 12 4l8 5v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9ZM4 9l8 5 8-5M12 14v7"/>',
+storage:'<rect x="4" y="3" width="16" height="18" rx="2" fill="currentColor" fill-opacity=".13"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16M10 8h4m-4 8h4"/>',
+supplies:'<rect x="9" y="3" width="6" height="3" rx="1"/><path d="M9 6v3c-3 1-4 2-4 5v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5c0-3-1-4-4-5V6"/><rect x="8" y="13" width="8" height="5" rx="1" fill="currentColor" fill-opacity=".16"/>',
+sort:'<path d="M4 10h16l-1 9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2l-1-9Z" fill="currentColor" fill-opacity=".14"/><path d="M4 10h16l-1 9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2l-1-9ZM8 10l4-7 4 7M10 15h4"/>',
+house:'<path d="m3 11 9-7 9 7v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8Z" fill="currentColor" fill-opacity=".13"/><path d="m3 11 9-7 9 7v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8ZM10 21v-7h4v7"/>'
+};return '<svg class="ui-icon" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(p[name]||p.house)+'</svg>';}
 function header(){
  const total=state.items.length,unplaced=state.items.filter(i=>!i.locationId).length,low=state.items.filter(i=>i.consumable&&Number(i.quantity)<=Number(i.minQuantity||0)).length;
- return '<header class="top"><div class="brand"><div class="eyebrow">おうち</div><h1>おうち</h1><div class="sub">每件小东西，都有属于自己的位置。</div></div><button class="pill" data-act="nav" data-view="settings">⚙️ 设置</button></header>'+
- '<section class="hero"><div class="hero-line"><div><h2>A place for everything.</h2><p>从一个小盒子开始，慢慢整理我们的家。</p></div><div class="heart">♡</div></div><div class="search"><input id="global-search" placeholder="搜索物品、分类或存放位置..." value="'+pretty(searchTerm)+'" aria-label="搜索物品"></div><div class="stats"><div class="stat"><b>'+total+'</b><span>件物品条目</span></div><div class="stat"><b>'+unplaced+'</b><span>待整理</span></div><div class="stat"><b>'+low+'</b><span>待补货</span></div></div></section>';
+ return '<header class="top"><div class="brand"><div class="eyebrow">OUR SPACE · 我们的家</div><h1>HOME<span class="title-dot">.</span></h1><div class="sub">Shared home inventory · 家庭收纳清单</div></div><button class="pill" data-act="nav" data-view="settings">Settings · 设置</button></header>'+
+ '<section class="hero"><div class="hero-line"><div><h2>Everything has a place.</h2><p>每样东西，都有它的位置。</p></div><div class="hero-brand">'+uiIcon("house",46)+'</div></div><div class="search"><input id="global-search" placeholder="Search items, categories, locations... 搜索物品" value="'+pretty(searchTerm)+'" aria-label="搜索物品"></div><div class="stats"><div class="stat"><b>'+total+'</b><span>Items · 物品</span></div><div class="stat"><b>'+unplaced+'</b><span>To Sort · 待整理</span></div><div class="stat"><b>'+low+'</b><span>Low Stock · 待补货</span></div></div></section>';
 }
 function home(){
  const recent=state.items.slice().sort((a,b)=>(b.updatedAt||"").localeCompare(a.updatedAt||"")).slice(0,4);
  return '<div class="tiles">'+[
- ["items","▧","物品清单","查看家里所有小东西"],
- ["locations","▤","收纳空间","房间、柜子与收纳盒"],
- ["stock","◫","消耗品","库存与补货提醒"],
- ["unplaced","◇","待整理","之后再决定放哪里"]
- ].map(([v,icon,label,sub])=>'<button class="tile" data-act="nav" data-view="'+v+'"><i>'+icon+'</i><strong>'+label+'</strong><span>'+sub+'</span></button>').join("")+'</div>'+
- '<div class="section-head"><h2>最近添加 ♡</h2><button class="secondary" data-act="add-item">＋ 添加物品</button></div>'+
+ ["items","inventory","Inventory","家中物品清单"],
+ ["locations","storage","Storage","房间、柜子与收纳盒"],
+ ["stock","supplies","Supplies","消耗品与补货提醒"],
+ ["unplaced","sort","To Sort","暂时还没整理的东西"]
+ ].map(([v,icon,label,sub])=>'<button class="tile" data-act="nav" data-view="'+v+'"><span class="tile-icon">'+uiIcon(icon)+'</span><strong>'+label+'</strong><span class="tile-description">'+sub+'</span></button>').join("")+'</div>'+
+ '<div class="section-head"><h2>Recently Added <small>最近添加</small></h2><button class="secondary" data-act="add-item">＋ Add Item · 添加物品</button></div>'+
  (recent.length?'<div class="cards">'+recent.map(itemCard).join("")+'</div>':empty("还没有添加物品","先从一根充电线、一个小盒子开始吧。"))+
- '<div class="notice" style="margin-top:18px">💌 还没整理好的东西可以先放到「待整理」。等找到合适的收纳盒，再一键修改位置。</div>';
+ '<div class="notice" style="margin-top:18px">还没整理好的东西可以先放到「待整理」，之后再分配收纳位置。</div>';
 }
 function empty(title,sub){return '<div class="empty"><span class="emoji">🌷</span><b>'+title+'</b><p>'+sub+'</p></div>';}
 function itemsPage(){
@@ -85,9 +92,9 @@ function locationsPage(){
  (activeLocation?'<div class="section-head"><h2>直接放在这里的物品</h2><button class="secondary" data-act="add-item" data-location="'+activeLocation+'">＋ 添加</button></div>'+(items.length?'<div class="cards">'+items.map(itemCard).join("")+'</div>':empty("暂无物品","你也可以将物品放到这个位置里。")):'')+'</div>';
 }
 function settingsPage(){
- return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前基础版的数据仅保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>关于 おうち</h3><p class="hint">版本 1.0 · 先收纳，再慢慢完善。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
+ return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前基础版的数据仅保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">版本 1.0 · 先收纳，再慢慢完善。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
 }
-function navBar(){return '<nav class="bottom" aria-label="主导航">'+[['home','⌂','首页'],['items','▦','物品'],['locations','▤','收纳'],['stock','◫','库存']].map(([v,icon,label])=>'<button class="nav '+(view===v?'active':'')+'" data-act="nav" data-view="'+v+'"><i>'+icon+'</i>'+label+'</button>').join("")+'</nav>';}
+function navBar(){return '<nav class="bottom" aria-label="主导航">'+[['home','house','Home','首页'],['items','inventory','Items','物品'],['locations','storage','Storage','收纳'],['stock','supplies','Stock','库存']].map(([v,icon,label,cn])=>'<button class="nav '+(view===v?'active':'')+'" data-act="nav" data-view="'+v+'"><span class="nav-icon">'+uiIcon(icon,22)+'</span><span>'+label+'</span><small>'+cn+'</small></button>').join("")+'</nav>';}
 function render(focusSearch=false){
  app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="locations"?locationsPage():view==="settings"?settingsPage():itemsPage())+'</main>'+navBar();
  if(modal)renderModal();
