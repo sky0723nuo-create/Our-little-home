@@ -26,6 +26,22 @@ jobs:
           node --check wellness.js
       - name: Run planner regression suite
         run: node --test tests/planner.test.mjs
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Browser smoke tests
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 &
+          sleep 2
+          node tests/browser-smoke.mjs
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-v2-1-browser-screenshots
+          path: preview-*.png
+          if-no-files-found: ignore
       - name: Upload preview website artifact
         uses: actions/upload-artifact@v4
         with:
