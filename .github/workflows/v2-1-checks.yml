@@ -53,8 +53,8 @@ jobs:
           js=Path("preview.bundle.js").read_text().replace("</script>","<\\/script>")
           html=re.sub(r'<link rel="manifest"[^>]*>',"",html)
           html=re.sub(r'<link rel="icon"[^>]*>',"",html)
-          html=re.sub(r'<link rel="stylesheet"[^>]*>',"<style>"+css+"</style>",html)
-          html=re.sub(r'<script type="module"[^>]*></script>',"<script>"+js+"</script>",html)
+          html=re.sub(r'<link rel="stylesheet"[^>]*>',lambda m:"<style>"+css+"</style>",html)
+          html=re.sub(r'<script type="module"[^>]*></script>',lambda m:"<script>"+js+"</script>",html)
           Path("HOME-V2.1-PREVIEW.html").write_text(html)
           PY
       - name: Upload standalone preview
