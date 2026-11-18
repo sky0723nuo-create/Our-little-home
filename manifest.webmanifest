@@ -1,12 +1,12 @@
 {
-  "name": "Our Little Home",
-  "short_name": "Little Home ♡",
+  "name": "Nest Notes",
+  "short_name": "Nest Notes",
   "description": "两个人的共享家庭收纳清单",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#fff8f6",
-  "theme_color": "#fff8f6",
+  "background_color": "#f7f5ef",
+  "theme_color": "#f7f5ef",
   "icons": [
     {
       "src": "./icon.svg",
