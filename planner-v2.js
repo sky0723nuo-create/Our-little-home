@@ -60,7 +60,8 @@ export function createPlanner(ctx){
   const entries=upcoming(!mine,200).map(t=>({date:taskNext(t),html:taskCard(t)}));
   const legacy=(st,category,label,view,owner)=>{
    if(mine&&owner==="jason")return;
-   const d=st.lastDone&&st.frequency?advance(st.lastDone,Number(st.frequency)||1,st.unit||"months"):"";
+   const count=Number(st.frequency||st.intervalCount)||0,unit=st.unit||st.intervalUnit||"months";
+   const d=st.lastDone&&count>0?advance(st.lastDone,count,unit):"";
    if(d&&d<=maxDate)entries.push({date:d,html:legacyRow(st.name,label,d,view)});
   };
   function legacyRow(name,label,d,view){
