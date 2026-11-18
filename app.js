@@ -1,6 +1,7 @@
-import { createPlanner } from "./planner-v2.js?v=v2-1";
-import { createWellness } from "./wellness.js?v=v2-1";
-import { createHomeExtras } from "./home-extras.js?v=v2-1";
+import { createCollection } from "./collection.js?v=v2-1-1";
+import { createPlanner } from "./planner-v2.js?v=v2-1-1";
+import { createWellness } from "./wellness.js?v=v2-1-1";
+import { createHomeExtras } from "./home-extras.js?v=v2-1-1";
 const STORAGE_KEY = "our-little-home-v1";
 const app = document.getElementById("app");
 const themeStorageKey = "nest-notes-theme";
@@ -10,11 +11,11 @@ const toastEl = document.getElementById("toast");
 const uuid = () => crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2);
 const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const pretty = (v) => escapeHtml(v);
-const initial = () => ({version:4,locations:[],items:[],history:[],shopping:[],chores:[],wellness:[],tasks:[],pets:[],petRecords:[],subscriptions:[],activity:[]});
+const initial = () => ({version:4,locations:[],items:[],history:[],shopping:[],chores:[],wellness:[],tasks:[],pets:[],petRecords:[],subscriptions:[],activity:[],finds:[]});
 function load() {
  try {
   const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-  if (parsed && Array.isArray(parsed.items) && Array.isArray(parsed.locations)) return {...initial(),...parsed,shopping:Array.isArray(parsed.shopping)?parsed.shopping:[],chores:Array.isArray(parsed.chores)?parsed.chores:[],wellness:Array.isArray(parsed.wellness)?parsed.wellness:[],tasks:Array.isArray(parsed.tasks)?parsed.tasks:[],pets:Array.isArray(parsed.pets)?parsed.pets:[],petRecords:Array.isArray(parsed.petRecords)?parsed.petRecords:[],subscriptions:Array.isArray(parsed.subscriptions)?parsed.subscriptions:[],activity:Array.isArray(parsed.activity)?parsed.activity:[]};
+  if (parsed && Array.isArray(parsed.items) && Array.isArray(parsed.locations)) return {...initial(),...parsed,shopping:Array.isArray(parsed.shopping)?parsed.shopping:[],chores:Array.isArray(parsed.chores)?parsed.chores:[],wellness:Array.isArray(parsed.wellness)?parsed.wellness:[],tasks:Array.isArray(parsed.tasks)?parsed.tasks:[],pets:Array.isArray(parsed.pets)?parsed.pets:[],petRecords:Array.isArray(parsed.petRecords)?parsed.petRecords:[],subscriptions:Array.isArray(parsed.subscriptions)?parsed.subscriptions:[],activity:Array.isArray(parsed.activity)?parsed.activity:[],finds:Array.isArray(parsed.finds)?parsed.finds:[]};
  } catch {}
  return initial();
 }
@@ -23,6 +24,7 @@ const save = () => {localStorage.setItem(STORAGE_KEY,JSON.stringify(state));wind
 const extras=createHomeExtras({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const wellness=createWellness({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const planner=createPlanner({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid,icon:uiIcon});
+const collection=createCollection({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 let shoppingTab="list";
 let timeout; function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(timeout);timeout=setTimeout(()=>toastEl.classList.remove("show"),2300);}
 function ancestors(id) {
@@ -57,7 +59,7 @@ function currentItems() {
  });
  return items.sort((a,b)=>sortBy==="qty"?Number(a.quantity)-Number(b.quantity):a.name.localeCompare(b.name,"zh"));
 }
-function uiIcon(name,size=30){const p={
+function uiIcon(name,size=30){const p={collection:'<path d="M12 20s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 5.7-8 11-8 11Z" fill="currentColor" fill-opacity=".13"/><path d="M12 20s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 5.7-8 11-8 11Z"/>',
  plus:'<path d="M12 4v16M4 12h16"/>',
  planner:'<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16"/>',
  wellness:'<path d="M12 21s-8-5.5-8-11a4.5 4.5 0 0 1 8-2.7A4.5 4.5 0 0 1 20 10c0 5.5-8 11-8 11Z" fill="currentColor" fill-opacity=".13"/><path d="M12 21s-8-5.5-8-11a4.5 4.5 0 0 1 8-2.7A4.5 4.5 0 0 1 20 10c0 5.5-8 11-8 11ZM8 13h2l1-2 2 4 1-2h2"/>',
@@ -79,7 +81,7 @@ function home(){
  const unplaced=state.items.filter(i=>!i.locationId).length;
  return '<div class="v2-welcome"><div class="eyebrow">A LITTLE LIFE, TOGETHER.</div><h2>Welcome HOME ♡</h2><p>我们的家，一起慢慢打理。</p></div>'+planner.upcomingWidget()+
  '<div class="section-head"><h2>Quick Overview <small>家庭概览</small></h2></div><div class="v2-overview-grid">'+[['shopping','待购买',extras.summary().shopping],['stock','低库存',low],['unplaced','待整理',unplaced],['planner','待办任务',planner.summary().tasks]].map(([v,label,n])=>'<button data-act="nav" data-view="'+v+'"><strong>'+n+'</strong><small>'+label+'</small></button>').join("")+'</div>'+
- '<div class="section-head"><h2>Explore <small>功能分类</small></h2><button class="secondary" data-act="quick-add">＋ Quick Add</button></div><div class="tiles v2-explore">'+[['inventory','inventory','Inventory','物品与收纳'],['planner','planner','Planner','生活事务与护理'],['shopping','shopping','Shopping','采购与定期配送']].map(([v,ic,name,desc])=>'<button class="tile" data-act="nav" data-view="'+v+'"><span class="tile-icon">'+uiIcon(ic)+'</span><strong>'+name+'</strong><span class="tile-description">'+desc+'</span></button>').join("")+'</div>';
+ '<div class="section-head"><h2>Explore <small>功能分类</small></h2><button class="secondary" data-act="quick-add">＋ Quick Add</button></div><div class="tiles v2-explore">'+[['collection','collection','Collection','我们的好物与餐厅'],['inventory','inventory','Inventory','物品与收纳'],['planner','planner','Planner','生活事务与护理'],['shopping','shopping','Shopping','采购与定期配送']].map(([v,ic,name,desc])=>'<button class="tile" data-act="nav" data-view="'+v+'"><span class="tile-icon">'+uiIcon(ic)+'</span><strong>'+name+'</strong><span class="tile-description">'+desc+'</span></button>').join("")+'</div>';
 }
 function empty(title,sub){return '<div class="empty"><span class="emoji">🌷</span><b>'+title+'</b><p>'+sub+'</p></div>';}
 function itemsPage(){
@@ -100,15 +102,16 @@ function locationsPage(){
 }
 function shoppingPageV2(){return '<div class="v2-tabs shopping-tabs"><button data-act="shop-tab" data-value="list" class="'+(shoppingTab==="list"?"selected":"")+'">Shopping List · 清单</button><button data-act="shop-tab" data-value="subs" class="'+(shoppingTab==="subs"?"selected":"")+'">Subscriptions · 定期配送</button></div>'+(shoppingTab==="subs"?planner.subscriptionPage():extras.shoppingPage());}
 function settingsPage(){
- return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前物品、家务、个护、宠物和生活计划都保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">版本 2.1 Preview · 新首页、Planner、Pets 和定期配送。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
+ return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前物品、家务、个护、宠物、生活计划和 Collection 都保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">版本 2.1.1 · 新增 Collection、评价与体验历史。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
 }
-function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['home','house','Home','首页'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
+function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['collection','collection','Collection','收藏'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
 function render(focusSearch=false){
- app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
+ app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="collection"?collection.page():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
  if(modal)renderModal();
  extras.showModal();
  wellness.show();
  planner.show();
+ collection.show();
  if(focusSearch){const input=document.getElementById("global-search");input?.focus();input?.setSelectionRange(searchTerm.length,searchTerm.length);}
 }
 function modalBox(body){return '<div class="overlay" id="modal-overlay"><div class="modal" role="dialog" aria-modal="true">'+body+'</div></div>';}
@@ -116,7 +119,7 @@ function renderModal(){
  document.getElementById("modal-overlay")?.remove();
  if(!modal)return;
  let html="";
- if(modal.type==="quick-add"){html='<h2>Quick Add · 快速添加</h2><div class="v2-quick-menu">'+[["item","📦","Inventory Item","添加物品"],["task","🗓️","Task","生活待办"],["shopping","🛒","Shopping Item","购物清单"],["care","🧺","Home Care","家务维护"],["wellness","♡","Wellness","个护记录"],["pet","🐱","Cat Profile","猫咪档案"],["sub","🚚","Subscription","定期配送"]].map(([type,ic,en,zh])=>'<button type="button" data-act="quick-add-choice" data-type="'+type+'"><span>'+ic+'</span><strong>'+en+'</strong><small>'+zh+'</small></button>').join("")+'</div><div class="modal-actions"><button class="secondary" data-act="close">Cancel</button></div>';}else if(modal.type==="item"){
+ if(modal.type==="quick-add"){html='<h2>Quick Add · 快速添加</h2><div class="v2-quick-menu">'+[["find","♡","Collection","记录好物"],["item","📦","Inventory Item","添加物品"],["task","🗓️","Task","生活待办"],["shopping","🛒","Shopping Item","购物清单"],["care","🧺","Home Care","家务维护"],["wellness","♡","Wellness","个护记录"],["pet","🐱","Cat Profile","猫咪档案"],["sub","🚚","Subscription","定期配送"]].map(([type,ic,en,zh])=>'<button type="button" data-act="quick-add-choice" data-type="'+type+'"><span>'+ic+'</span><strong>'+en+'</strong><small>'+zh+'</small></button>').join("")+'</div><div class="modal-actions"><button class="secondary" data-act="close">Cancel</button></div>';}else if(modal.type==="item"){
   const i=state.items.find(x=>x.id===modal.id);
   const locationId=i?.locationId??modal.location??"";
   html='<h2>'+(i?"编辑物品":"添加新物品")+' ♡</h2><form class="form" id="item-form"><label class="field">物品名称 *<input name="name" maxlength="100" required placeholder="例如：USB-C 充电线" value="'+pretty(i?.name||"")+'"></label><label class="field">分类<select name="category">'+categoryOptions(i?.category||"其他")+'</select></label><label class="field">收纳位置<select name="locationId">'+locationOptions(locationId)+'</select></label><div class="row"><label class="field">数量<input name="quantity" type="number" min="0" step="1" required value="'+(i?.quantity??1)+'"></label><label class="field">单位<input name="unit" maxlength="20" placeholder="件 / 个 / 瓶" value="'+pretty(i?.unit||"件")+'"></label></div><label class="field" style="display:flex;flex-direction:row;align-items:center"><input name="consumable" type="checkbox" '+(i?.consumable?'checked':'')+' style="width:auto">这是消耗品（需要库存提醒）</label><label class="field">最低库存提醒阈值<input name="minQuantity" type="number" min="0" step="1" value="'+(i?.minQuantity??1)+'"></label><label class="field">备注<textarea name="notes" rows="2" maxlength="500" placeholder="颜色、规格、用途等">'+pretty(i?.notes||"")+'</textarea></label><div class="modal-actions">'+(i?'<button type="button" class="secondary danger" data-act="delete-item" data-id="'+i.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button class="primary" type="submit">保存物品</button></div></form>';
@@ -156,10 +159,11 @@ async function doImport(file){
  for(const l of locations){if(l.parentId&&!ids.has(l.parentId))l.parentId=null;const seen=new Set();let x=l;while(x){if(seen.has(x.id))throw Error("位置包含循环引用");seen.add(x.id);x=locations.find(y=>y.id===x.parentId);}}
  const itemIds=new Set();
  const items=raw.items.map(i=>{if(typeof i.id!=="string"||!i.id||itemIds.has(i.id))throw Error("物品数据无效");itemIds.add(i.id);return {id:i.id,name:String(i.name||"未命名"),category:String(i.category||"其他"),locationId:ids.has(i.locationId)?i.locationId:null,quantity:Math.max(0,Math.floor(Number(i.quantity)||0)),unit:String(i.unit||"件"),consumable:Boolean(i.consumable),minQuantity:Math.max(0,Math.floor(Number(i.minQuantity)||0)),notes:String(i.notes||""),createdAt:i.createdAt||new Date().toISOString(),updatedAt:i.updatedAt||new Date().toISOString()};});
- state={version:4,locations,items,history:[],shopping:Array.isArray(raw.shopping)?raw.shopping.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],chores:Array.isArray(raw.chores)?raw.chores.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],wellness:Array.isArray(raw.wellness)?raw.wellness.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],tasks:Array.isArray(raw.tasks)?raw.tasks:[],pets:Array.isArray(raw.pets)?raw.pets:[],petRecords:Array.isArray(raw.petRecords)?raw.petRecords:[],subscriptions:Array.isArray(raw.subscriptions)?raw.subscriptions:[],activity:Array.isArray(raw.activity)?raw.activity:[]};save();view="home";modal=null;render();toast("导入成功 ♡");
+ state={version:4,locations,items,history:[],shopping:Array.isArray(raw.shopping)?raw.shopping.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],chores:Array.isArray(raw.chores)?raw.chores.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],wellness:Array.isArray(raw.wellness)?raw.wellness.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],tasks:Array.isArray(raw.tasks)?raw.tasks:[],pets:Array.isArray(raw.pets)?raw.pets:[],petRecords:Array.isArray(raw.petRecords)?raw.petRecords:[],subscriptions:Array.isArray(raw.subscriptions)?raw.subscriptions:[],activity:Array.isArray(raw.activity)?raw.activity:[],finds:Array.isArray(raw.finds)?raw.finds:[]};save();view="home";modal=null;render();toast("导入成功 ♡");
  }catch(e){toast("导入失败："+e.message);}
 }
 document.addEventListener("input",e=>{
+ if(e.target.matches("[data-find-search]")){const caret=e.target.selectionStart;collection.input(e);render();const fresh=document.querySelector("[data-find-search]");fresh?.focus();fresh?.setSelectionRange(caret,caret);return;}
  if(e.target.id==="global-search"){searchTerm=e.target.value; if(searchTerm&&view==="home")view="items";render(true);}
 });
 document.addEventListener("change",e=>{
@@ -169,6 +173,7 @@ document.addEventListener("change",e=>{
  if(e.target.id==="import-file")doImport(e.target.files[0]);
 });
 document.addEventListener("submit",e=>{
+ if(collection.submit(e))return;
  if(planner.submit(e))return;
  if(wellness.submit(e))return;
  if(extras.submit(e))return;
@@ -176,6 +181,7 @@ document.addEventListener("submit",e=>{
  if(e.target.id==="location-form"){e.preventDefault();submitLocation(e.target);}
 });
 document.addEventListener("click",e=>{
+ if(collection.click(e))return;
  if(planner.click(e))return;
  if(wellness.click(e))return;
  if(extras.click(e))return;
@@ -183,10 +189,10 @@ document.addEventListener("click",e=>{
  const b=e.target.closest("[data-act]");if(!b)return;
  const {act,id,view:target,delta,parent,location}=b.dataset;
  if(act==="theme"){theme=b.dataset.theme==="lavender"?"lavender":"wood";localStorage.setItem(themeStorageKey,theme);document.body.dataset.theme=theme;render();toast("配色已切换");}
- if(act==="nav"){extras.close();wellness.close();planner.close();modal=null;view=target;searchTerm="";locationFilter="";categoryFilter="";render();}
+ if(act==="nav"){extras.close();wellness.close();planner.close();collection.reset();modal=null;view=target;searchTerm="";locationFilter="";categoryFilter="";render();}
  if(act==="shop-tab"){shoppingTab=b.dataset.value==="subs"?"subs":"list";render();}
  if(act==="quick-add"){modal={type:"quick-add"};renderModal();}
- if(act==="quick-add-choice"){const t=b.dataset.type;modal=null;render();if(t==="item"){modal={type:"item"};renderModal();}else if(t==="task"){view="planner";render();planner.open("task");}else if(t==="shopping"){view="shopping";shoppingTab="list";render();document.querySelector('[data-extra="new-shopping"]')?.click();}else if(t==="care"){view="chores";render();document.querySelector('[data-extra="new-chore"]')?.click();}else if(t==="wellness"){view="wellness";render();document.querySelector('[data-well="new"]')?.click();}else if(t==="pet"){view="planner";planner.section("pets");render();planner.open("pet");}else if(t==="sub"){view="shopping";shoppingTab="subs";render();planner.open("sub");}}
+ if(act==="quick-add-choice"){const t=b.dataset.type;modal=null;render();if(t==="find"){view="collection";render();collection.open("find");}else if(t==="item"){modal={type:"item"};renderModal();}else if(t==="task"){view="planner";render();planner.open("task");}else if(t==="shopping"){view="shopping";shoppingTab="list";render();document.querySelector('[data-extra="new-shopping"]')?.click();}else if(t==="care"){view="chores";render();document.querySelector('[data-extra="new-chore"]')?.click();}else if(t==="wellness"){view="wellness";render();document.querySelector('[data-well="new"]')?.click();}else if(t==="pet"){view="planner";planner.section("pets");render();planner.open("pet");}else if(t==="sub"){view="shopping";shoppingTab="subs";render();planner.open("sub");}}
  if(act==="add-item"){modal={type:"item",location:location||null};renderModal();}
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
  if(act==="add-location"){modal={type:"location",parent:parent??activeLocation};renderModal();}
@@ -200,6 +206,6 @@ document.addEventListener("click",e=>{
  if(act==="import")document.getElementById("import-file")?.click();
  if(act==="clear"){if(confirm("此操作会永久清空当前设备的所有物品及收纳位置。请先导出备份。确认清空？")&&confirm("再次确认：删除所有本地数据？")){state=initial();save();view="home";render();toast("数据已清空");}}
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal){modal=null;render();}else{planner.close();extras.close();wellness.close();}}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal){modal=null;render();}else{collection.close();planner.close();extras.close();wellness.close();}}});
 window.addEventListener("storage",e=>{if(e.key===STORAGE_KEY){state=load();render();toast("本机数据已刷新");}});
 render();
