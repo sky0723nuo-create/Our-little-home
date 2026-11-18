@@ -37,7 +37,7 @@ export function createPlanner(ctx){
  function visible(t){return t.visibility!=="private"||t.owner==="me";}
  function myTask(t){return t.owner==="me"||t.owner==="together";}
  function upcoming(all=false,limit=5){
-  const list=records().filter(t=>!t.deletedAt&&!t.done&&visible(t)&&(!(!all&&!myTask(t)))&&taskNext(t));
+  const list=records().filter(t=>!t.deletedAt&&!t.done&&visible(t)&&(all||myTask(t))&&taskNext(t));
   list.sort((a,b)=>(taskNext(a)||"9999").localeCompare(taskNext(b)||"9999"));
   const boundary=advance(today(),7,"days");
   return list.filter(t=>taskNext(t)<=boundary).slice(0,limit);
@@ -53,11 +53,33 @@ export function createPlanner(ctx){
   return '<div class="v2-task"><button class="v2-task-done" data-v2="done-task" data-id="'+t.id+'" aria-label="完成 '+esc(t.name)+'">✓</button><div class="v2-task-body"><strong>'+esc(t.name)+'</strong><div class="task-meta">'+esc({admin:"Life Admin",care:"Home Care",wellness:"Wellness",pets:"Pets"}[t.category]||"Life Admin")+' · '+ownerLabel(t.owner)+(d?" · "+esc(d):"")+'</div>'+
    (tasksLink(t)?'<div class="task-meta">'+esc(tasksLink(t))+'</div>':"")+'</div><span class="care-badge '+s.cls+'">'+s.label+'</span><button class="mini" data-v2="edit-task" data-id="'+t.id+'">Edit</button></div>';
  }
+
  function upcomingWidget(){
-  const items=upcoming(scope==="all",5);
+  const maxDate=advance(today(),7,"days");
+  const mine=scope!=="all";
+  const entries=upcoming(!mine,200).map(t=>({date:taskNext(t),html:taskCard(t)}));
+  const legacy=(st,category,label,view,owner)=>{
+   if(mine&&owner==="jason")return;
+   const d=st.lastDone&&st.frequency?advance(st.lastDone,Number(st.frequency)||1,st.unit||"months"):"";
+   if(d&&d<=maxDate)entries.push({date:d,html:legacyRow(st.name,label,d,view)});
+  };
+  function legacyRow(name,label,d,view){
+   const overdue=d<today();
+   return '<button class="v2-legacy-row" data-act="nav" data-view="'+view+'"><span><strong>'+esc(name)+'</strong><small>'+esc(label)+' · '+esc(d)+'</small></span><span class="care-badge '+(overdue?"overdue":"scheduled")+'">'+(overdue?"Overdue":"Upcoming")+'</span></button>';
+  }
+  (state().chores||[]).forEach(i=>legacy(i,"Home Care","Home Care","chores","together"));
+  (state().wellness||[]).forEach(i=>legacy(i,"Wellness", "Wellness","wellness",i.owner||"me"));
+  (state().petRecords||[]).filter(i=>!i.deletedAt&&i.nextDate&&i.nextDate<=maxDate).forEach(i=>{
+   const pet=cats().find(p=>p.id===i.petId);
+   entries.push({date:i.nextDate,html:legacyRow((pet?.name||"Cat")+" · "+({bath:"Bath",check:"Health Check",weight:"Weight",vet:"Vet Visit",care:"Grooming"}[i.type]||"Care"),"Pets",i.nextDate,"planner")});
+  });
+  deliveries().filter(i=>!i.deletedAt&&i.status==="active"&&i.nextDate&&i.nextDate<=maxDate).forEach(i=>
+   entries.push({date:i.nextDate,html:legacyRow(i.name+" · Delivery","Subscriptions",i.nextDate,"shopping")})
+  );
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
   return '<section class="v2-upcoming"><div class="section-head"><h2>Upcoming <small>近期提醒</small></h2><button class="secondary" data-act="nav" data-view="planner">See All</button></div>'+
    '<div class="v2-tabs"><button data-v2="scope" data-value="mine" class="'+(scope==="mine"?"selected":"")+'">For Me · 与我有关</button><button data-v2="scope" data-value="all" class="'+(scope==="all"?"selected":"")+'">All · 全部</button></div>'+
-   (items.length?items.map(taskCard).join(""):'<div class="v2-calm">All caught up ♡<small>未来七天没有需要处理的计划。</small></div>')+'</section>';
+   (entries.length?entries.slice(0,5).map(x=>x.html).join(""):'<div class="v2-calm">All caught up ♡<small>未来七天没有需要处理的计划。</small></div>')+'</section>';
  }
  const option=(value,label,chosen)=>'<option value="'+esc(value)+'" '+(value===chosen?"selected":"")+'>'+esc(label)+'</option>';
  function linkSelect(selectedType="",selectedId=""){
@@ -270,6 +292,7 @@ export function createPlanner(ctx){
   }else{
    const sub=deliveries().find(x=>x.id===dialog?.id),quantity=Number(f.get("quantity")),receivedDate=String(f.get("receivedDate")||"");
    if(!sub||!Number.isInteger(quantity)||quantity<0||quantity>99999||!validDate(receivedDate)){toast("请检查实际收货日期和数量");return true;}
+   if((sub.history||[]).some(x=>x.receivedDate===receivedDate)){toast("本订阅今天已确认过收货，请勿重复入库");return true;}
    const receiptId=uuid(),item=state().items.find(x=>x.id===sub.itemId);
    sub.history=[...(sub.history||[]),{id:receiptId,receivedDate,quantity,stockUpdated:!!item}];
    if(item&&quantity>0){item.quantity=Math.max(0,Number(item.quantity)||0)+quantity;item.updatedAt=new Date().toISOString();state().history=[...(state().history||[]),{type:"subscription-received",itemId:item.id,delta:quantity,receiptId,date:receivedDate}];}
