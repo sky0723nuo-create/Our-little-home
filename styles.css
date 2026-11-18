@@ -72,3 +72,13 @@ body[data-theme="lavender"]{--page:#f8f7fc;--ink:#4c475b;--accent:#9581b5;--acce
 .care-badge.soon{background:#f3ecd5;color:#8b7232}
 .nav{min-width:0;flex:1}
 @media(max-width:650px){.bottom{gap:0;padding-left:3px;padding-right:3px}.nav{font-size:10px;padding:6px 2px}.nav small{font-size:9px}.extra-care .actions{align-items:stretch}.extra-care .actions button{font-size:11px;flex:1}.home-mini-stats{gap:8px}.home-mini-stats button{font-size:11px;padding:11px}}
+
+/* HOME Wellness */
+.well-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.well-tab{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:9px 13px;color:var(--ink);font-size:12px}
+.well-tab.selected{background:var(--hero);border-color:var(--accent);color:var(--accent);font-weight:700}
+.well-title{display:flex;flex-direction:column;gap:5px}
+.well-category{font-size:11px;color:var(--accent)}
+.well-title strong{font-size:16px}
+.home-mini-stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:650px){.home-mini-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.bottom .nav{font-size:9px}.bottom .nav small{font-size:8px}.bottom .nav .ui-icon{width:19px;height:19px}}
