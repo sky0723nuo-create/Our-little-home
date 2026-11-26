@@ -2,7 +2,7 @@ name: HOME V2.1 Checks
 
 on:
   push:
-    branches: [feature/home-v2-1, feature/home-v2-1-1-1-collection]
+    branches: [feature/home-v2-1, feature/home-v2-1-1-1-collection, development/home-v3]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -27,11 +27,14 @@ jobs:
           node --check home-extras.js
           node --check wellness.js
       - name: Run planner regression suite
-        run: node --test tests/planner.test.mjs tests/collection.test.mjs
+        run: node --test tests/*.test.mjs
       - name: Install Playwright
         run: |
-          npm install --no-save playwright
+          npm install --no-save playwright @electric-sql/pglite
           npx playwright install --with-deps chromium
+      - name: Supabase permission tests
+        if: hashFiles('tests/home-v3-permissions.mjs') != ''
+        run: node tests/home-v3-permissions.mjs
       - name: Browser smoke tests
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 &
@@ -41,7 +44,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: home-v2-1-1-browser-screenshots
+          name: home-browser-screenshots
           path: preview-*.png
           if-no-files-found: ignore
       - name: Build standalone preview HTML
@@ -57,20 +60,23 @@ jobs:
           html=re.sub(r'<link rel="icon"[^>]*>',"",html)
           html=re.sub(r'<link rel="stylesheet"[^>]*>',lambda m:"<style>"+css+"</style>",html)
           html=re.sub(r'<script type="module"[^>]*></script>',lambda m:"<script>"+js+"</script>",html)
-          Path("HOME-V2.1.1-PREVIEW.html").write_text(html)
+          Path("HOME-PREVIEW.html").write_text(html)
           PY
       - name: Upload standalone preview
         uses: actions/upload-artifact@v4
         with:
-          name: home-v2-1-1-open-in-browser
+          name: home-open-in-browser
           path: HOME-V2.1-PREVIEW.html
       - name: Upload preview website artifact
         uses: actions/upload-artifact@v4
         with:
-          name: home-v2-1-1-static-preview
+          name: home-static-preview
           path: |
             index.html
             app.js
+            cloud-sync.js
+            home-cloud.js
+            storage-map.js
             planner-v2.js
             collection.js
             wellness.js

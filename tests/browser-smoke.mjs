@@ -1,6 +1,6 @@
 import {chromium,devices} from "playwright";
 import assert from "node:assert/strict";
-const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+const browser=await chromium.launch({executablePath:process.env.HOME_TEST_CHROMIUM,headless:true,args:["--no-sandbox"]});
 const issues=[];
 for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"mobile",...devices["iPhone 13"]}]) {
  const ctx=await browser.newContext({...device,baseURL:"http://127.0.0.1:8765"});
@@ -54,12 +54,32 @@ for(const device of [{name:"desktop",viewport:{width:1280,height:850}}, {name:"m
  await page.locator('#v2-sub-form [name="nextDate"]').fill("2026-12-12");
  await page.locator('#v2-sub-form button:not([type="button"])').click();
  assert.match(await page.locator("main").innerText(),/Cat litter/);
+ await page.locator(".v2-bottom [data-view=inventory]").click();
+ await page.locator('[data-act="nav"][data-view="map"]').click();
+ const map = {format:"home-v3-layout",floorPlan:"data:image/svg+xml;base64,"+
+  Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#ddd"/></svg>').toString("base64"),
+  locations:[{id:"test-room",name:"Test Room",mapBounds:[10,10,80,80]},
+   {id:"test-cabinet",parentId:"test-room",name:"Test Cabinet",label:"Z3",mapBounds:[20,20,25,25]}]};
+ page.once("dialog", dialog=>dialog.accept());
+ await page.locator("#map-layout-file").setInputFiles({name:"map.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(map))});
+ await page.getByRole("button",{name:"Z3 · Test Cabinet",exact:true}).click();
+ await page.getByRole("button",{name:"＋ 添加物品",exact:true}).click();
+ await page.locator('#item-form [name="name"]').fill("Mapping demo item");
+ assert.equal(await page.locator('#item-form [name="locationId"]').inputValue(),"test-cabinet");
+ await page.locator('#item-form [name="visibility"]').selectOption("private");
+ await page.locator('#item-form [type="submit"]').click();
+ await page.locator("#global-search").fill("Z3");
+ await page.getByRole("button",{name:"定位",exact:true}).click();
+ assert.equal(await page.locator('#map-location').inputValue(),"test-cabinet");
+ assert.equal(await page.locator('[data-id="test-cabinet"].map-highlight').count(),1);
+ await page.getByRole("button",{name:"增加数量",exact:true}).click();
+ assert.equal(await page.locator(".item .qty").innerText(),"2 件");
  if(device.name==="mobile"){
    const width=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,inner:window.innerWidth}));
    assert.ok(width.scroll<=width.inner+2,"mobile layout overflow "+JSON.stringify(width));
  }
  await page.screenshot({path:"preview-"+device.name+".png",fullPage:true});
- console.log("PASS: "+device.name+" navigation, Collection, ratings, experiences, tasks, pets, subscriptions");
+ console.log("PASS: "+device.name+" navigation, Collection, ratings, experiences, tasks, pets, subscriptions, map, search and inventory");
  await ctx.close();
 }
 await browser.close();

@@ -29,6 +29,8 @@ export function storageMap({locations, background, selection, ancestors, itemCar
   <div class="panel">
    <div class="toolbar"><label class="field">跳到收纳位置<select id="map-location"><option value="">选择位置</option>${choices}</select></label>
    <button type="button" class="secondary" data-act="map-import">导入户型图</button>
+   <button type="button" class="secondary" data-act="map-import-layout">导入户型与柜体</button>
+   <input id="map-layout-file" type="file" accept=".json,application/json" hidden>
    <input id="map-file" type="file" accept="image/svg+xml,image/png,image/jpeg,image/webp" hidden></div>
    ${image || buttons ? `<div class="storage-map">${image}${buttons}</div>` : '<p class="hint">导入户型图后，可在收纳位置里给房间和柜子设置可点击区域。</p>'}
    ${selected ? `<div class="section-head"><h2>${esc(chain.map(part => [part.label, part.name].filter(Boolean).join(" ")).join(" → "))}</h2>
@@ -39,4 +41,22 @@ export function storageMap({locations, background, selection, ancestors, itemCar
      `<button class="secondary" data-act="map-select" data-id="${esc(location.id)}">${esc(location.label || location.name)}</button>`
     ).join("")}</div>${itemCards || '<p class="hint">此位置还没有物品。</p>'}` : ""}
   </div>`;
+}
+
+export function readLayout(raw) {
+ if (raw?.format !== "home-v3-layout" || !Array.isArray(raw.locations) ||
+  !/^data:image\/(?:svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(raw.floorPlan||"")) {
+  throw new Error("户型文件格式不正确");
+ }
+ const ids = new Set();
+ const locations = raw.locations.map(location=>{
+  const {id,parentId,name,label,icon} = location;
+  if (typeof id!=="string" || !/^[-a-zA-Z0-9_]{1,120}$/.test(id||"") || ids.has(id) || typeof name!=="string" || !name.trim() ||
+   (parentId&&!ids.has(parentId))) throw new Error("收纳位置或父级无效");
+  const bounds = Array.isArray(location.mapBounds) ? mapBounds(location.mapBounds.join(" ")) : null;
+  if (location.mapBounds && !bounds) throw new Error("户型坐标无效");
+  ids.add(id);
+  return {id,parentId:parentId||null,name,label:String(label||""),icon:String(icon||"📦"),mapBounds:bounds};
+ });
+ return {floorPlan:raw.floorPlan,locations};
 }

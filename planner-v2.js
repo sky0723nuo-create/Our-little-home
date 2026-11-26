@@ -98,7 +98,7 @@ export function createPlanner(ctx){
    '<details class="v2-more" '+(t?"open":"")+'><summary>More Options · 更多选项</summary>'+
    '<label class="field">Category · 类型<select name="category">'+[["admin","Life Admin · 生活事务"],["care","Home Care · 家务维护"],["wellness","Wellness · 个人护理"],["pets","Pets · 宠物护理"]].map(([v,l])=>option(v,l,t?.category||"admin")).join("")+'</select></label>'+
    '<label class="field">Priority · 优先级<select name="priority">'+[["normal","Normal · 普通"],["important","Important · 重要"],["urgent","Urgent · 紧急"]].map(([v,l])=>option(v,l,t?.priority||"normal")).join("")+'</select></label>'+
-   '<label class="field">Visibility · 可见范围<select name="visibility">'+[["shared","Shared · 共享"],["private","Private · 私人（本机标签）"]].map(([v,l])=>option(v,l,visibility)).join("")+'</select></label>'+
+   '<label class="field">Visibility · 可见范围<select name="visibility">'+[["shared","Shared · 共享"],["private","Private · 私人"]].map(([v,l])=>option(v,l,visibility)).join("")+'</select></label>'+
    '<label class="v2-checkbox"><input type="checkbox" name="repeat" '+(t?.repeat?"checked":"")+'> Repeat · 定期重复</label>'+
    '<div class="row"><label class="field">Every · 每隔<input type="number" name="every" min="1" max="365" value="'+(t?.every||3)+'"></label><label class="field">Unit · 单位<select name="unit">'+[["days","Days · 天"],["weeks","Weeks · 周"],["months","Months · 月"],["years","Years · 年"]].map(([v,l])=>option(v,l,t?.unit||"months")).join("")+'</select></label></div>'+
    '<label class="field">Next date calculation · 下次日期规则<select name="repeatMode">'+[["after","After completion · 按实际完成日期"],["fixed","Fixed schedule · 按固定计划"]].map(([v,l])=>option(v,l,t?.repeatMode||"after")).join("")+'</select></label>'+

@@ -52,3 +52,41 @@ Open http://localhost:8000 in your browser.
 ## Privacy note
 
 This repository is public. Do not commit personal inventories, address details, API secrets or backups.
+
+## HOME V3 development
+
+The development branch is excluded from the automatic Pages publish workflow.
+Serve the branch over HTTPS or localhost for review. Use a separate browser
+profile when testing with sample data.
+
+The existing Supabase project and its household memberships are reused.
+`supabase/home-v3.sql` adds the V3 sync tables and functions in one transaction.
+It leaves existing tables and their contents in place. Run the SQL in the
+project's SQL Editor before testing cloud sign-in. Existing Auth users must be
+linked to `household_members.user_id`. For email links, allowlist the review URL
+under Authentication → URL Configuration. Supabase's built-in mailer only sends
+to organization members. The existing accounts can also use password sign-in.
+
+In HOME Settings, sign in, review the legacy data counts and choose the default
+visibility before confirming the import. Existing Private entries stay private.
+Personal care and change history stay private. Storage spaces and the floor plan
+are shared with the household. The legacy browser copy is retained.
+
+Import the household's private layout through Inventory → Map → Import layout
+and storage spaces. Keep the layout file and its exports out of this repository.
+The SVG is displayed as an image. Clickable regions are stored as percentages,
+and subcompartments without an exact position are reached through the cabinet
+list. New spaces and map coordinates can be edited under Inventory → Storage.
+
+Verification:
+
+- `node --test tests/*.test.mjs`
+- Serve the app on port 8765 and run `node tests/browser-smoke.mjs` with
+  Playwright installed. Set `HOME_TEST_CHROMIUM` to use a local Chromium binary.
+- Run `node tests/home-v3-permissions.mjs` with `@electric-sql/pglite` installed
+  to exercise the SQL migration against a disposable database.
+- Before publishing, sign in using both household accounts from separate
+  browser profiles. Verify Shared edits arrive on both devices, and that each
+  Private record and its history only appear for its owner. Try an offline
+  edit and reconnect. Review imported browser data and the real layout on a
+  phone before merging.

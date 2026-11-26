@@ -1,8 +1,10 @@
-import { mapBounds, storageMap } from "./storage-map.js";
-import { createCollection } from "./collection.js?v=v2-1-1";
-import { createPlanner } from "./planner-v2.js?v=v2-1-1";
-import { createWellness } from "./wellness.js?v=v2-1-1";
-import { createHomeExtras } from "./home-extras.js?v=v2-1-1";
+import { createCloud, recordsFor } from "./home-cloud.js";
+import { createSync } from "./cloud-sync.js";
+import { mapBounds, readLayout, storageMap } from "./storage-map.js";
+import { createCollection } from "./collection.js?v=v3";
+import { createPlanner } from "./planner-v2.js?v=v3";
+import { createWellness } from "./wellness.js?v=v3";
+import { createHomeExtras } from "./home-extras.js?v=v3";
 const STORAGE_KEY = "our-little-home-v1";
 const app = document.getElementById("app");
 const themeStorageKey = "nest-notes-theme";
@@ -21,7 +23,21 @@ function load() {
  return initial();
 }
 let state = load(), view = "home", searchTerm = "", locationFilter = "", activeLocation = null, modal = null, categoryFilter = "", sortBy = "name";
-const save = () => {localStorage.setItem(STORAGE_KEY,JSON.stringify(state));window.dispatchEvent(new Event("home:changed"));render();};
+const cloud = createCloud();
+let cloudMessage="";
+const sync=createSync({api:cloud,initial,change:({status,state:next})=>{
+ cloudMessage=status;
+ if(next){state=next;if(!modal&&!document.activeElement?.matches("input, textarea, select"))render();}
+ const statusNode=document.querySelector("#cloud-status");
+ if(statusNode)statusNode.textContent=status;
+}});
+const save = () => {
+ try {
+  if(sync.connected)sync.save(state);
+  else localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+ } catch {toast("本机存储空间不足，请导出备份后重试");}
+ window.dispatchEvent(new Event("home:changed"));render();
+};
 const extras=createHomeExtras({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const wellness=createWellness({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const planner=createPlanner({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid,icon:uiIcon});
@@ -102,8 +118,25 @@ function locationsPage(){
  (activeLocation?'<div class="section-head"><h2>直接放在这里的物品</h2><button class="secondary" data-act="add-item" data-location="'+activeLocation+'">＋ 添加</button></div>'+(items.length?'<div class="cards">'+items.map(itemCard).join("")+'</div>':empty("暂无物品","你也可以将物品放到这个位置里。")):'')+'</div>';
 }
 function shoppingPageV2(){return '<div class="v2-tabs shopping-tabs"><button data-act="shop-tab" data-value="list" class="'+(shoppingTab==="list"?"selected":"")+'">Shopping List · 清单</button><button data-act="shop-tab" data-value="subs" class="'+(shoppingTab==="subs"?"selected":"")+'">Subscriptions · 定期配送</button></div>'+(shoppingTab==="subs"?planner.subscriptionPage():extras.shoppingPage());}
+function cloudPanel(){
+ const auth=cloud.user();
+ if(!auth)return '<form id="cloud-login" class="form"><label class="field">登录邮箱<input type="email" name="email" required autocomplete="email"></label><label class="field">密码（用邮箱链接登录时可留空）<input type="password" name="password" autocomplete="current-password"></label><div class="actions"><button class="primary" type="submit" name="method" value="link">发送登录链接</button><button class="secondary" type="submit" name="method" value="password">用密码登录</button></div><p id="cloud-status" role="status">'+pretty(cloudMessage)+'</p></form>';
+ const legacy=load(),count=recordsFor(legacy).length;
+ return '<p>'+pretty(auth.email)+'</p><p id="cloud-status" role="status">'+pretty(cloudMessage)+'</p><div class="actions"><button class="secondary" data-act="cloud-logout">退出登录</button><button class="secondary" data-act="cloud-sync">立即同步</button><button class="secondary" data-act="cloud-reload">重新加载云端</button></div>'+
+ (sync.connected&&count?'<form id="cloud-migrate" class="form"><p>本机旧版记录 '+count+' 条，其中物品 '+legacy.items.length+' 条、位置 '+legacy.locations.length+' 条。导入保留旧版备份，并跳过云端已有的记录。</p><label class="field">导入私人资料的可见范围<select name="visibility"><option value="private">Private · 只给自己</option><option value="shared">Shared · 家庭成员可见</option></select></label><button class="primary" type="submit">确认导入旧版数据</button></form>':'');
+}
+async function connectCloud(){
+ try {
+  await cloud.finishLink();
+  if(cloud.user()){
+   cloudMessage="正在连接家庭…";
+   await sync.start();
+   if(location.hash==="")render();
+  }
+ } catch(error){cloudMessage="云端连接失败："+error.message;render();}
+}
 function settingsPage(){
- return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前物品、家务、个护、宠物、生活计划和 Collection 都保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">版本 2.1.1 · 新增 Collection、评价与体验历史。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
+ return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">可导出当前可见数据。登录后可在下方预览并迁移这台设备的旧版数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import" '+(sync.connected?'disabled':'')+'>↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3>'+cloudPanel()+'</div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">HOME V3 开发版 · 收纳地图与双人同步。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear" '+(sync.connected?'disabled':'')+'>清空本机所有数据</button></div></div>';
 }
 function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['collection','collection','Collection','收藏'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced","map"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
 function render(focusSearch=false){
@@ -123,7 +156,7 @@ function renderModal(){
  if(modal.type==="quick-add"){html='<h2>Quick Add · 快速添加</h2><div class="v2-quick-menu">'+[["find","♡","Collection","记录好物"],["item","📦","Inventory Item","添加物品"],["task","🗓️","Task","生活待办"],["shopping","🛒","Shopping Item","购物清单"],["care","🧺","Home Care","家务维护"],["wellness","♡","Wellness","个护记录"],["pet","🐱","Cat Profile","猫咪档案"],["sub","🚚","Subscription","定期配送"]].map(([type,ic,en,zh])=>'<button type="button" data-act="quick-add-choice" data-type="'+type+'"><span>'+ic+'</span><strong>'+en+'</strong><small>'+zh+'</small></button>').join("")+'</div><div class="modal-actions"><button class="secondary" data-act="close">Cancel</button></div>';}else if(modal.type==="item"){
   const i=state.items.find(x=>x.id===modal.id);
   const locationId=i?.locationId??modal.location??"";
-  html='<h2>'+(i?"编辑物品":"添加新物品")+' ♡</h2><form class="form" id="item-form"><label class="field">物品名称 *<input name="name" maxlength="100" required placeholder="例如：USB-C 充电线" value="'+pretty(i?.name||"")+'"></label><label class="field">分类<select name="category">'+categoryOptions(i?.category||"其他")+'</select></label><label class="field">收纳位置<select name="locationId">'+locationOptions(locationId)+'</select></label><div class="row"><label class="field">数量<input name="quantity" type="number" min="0" step="1" required value="'+(i?.quantity??1)+'"></label><label class="field">单位<input name="unit" maxlength="20" placeholder="件 / 个 / 瓶" value="'+pretty(i?.unit||"件")+'"></label></div><label class="field" style="display:flex;flex-direction:row;align-items:center"><input name="consumable" type="checkbox" '+(i?.consumable?'checked':'')+' style="width:auto">这是消耗品（需要库存提醒）</label><label class="field">最低库存提醒阈值<input name="minQuantity" type="number" min="0" step="1" value="'+(i?.minQuantity??1)+'"></label><label class="field">备注<textarea name="notes" rows="2" maxlength="500" placeholder="颜色、规格、用途等">'+pretty(i?.notes||"")+'</textarea></label><div class="modal-actions">'+(i?'<button type="button" class="secondary danger" data-act="delete-item" data-id="'+i.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button class="primary" type="submit">保存物品</button></div></form>';
+  html='<h2>'+(i?"编辑物品":"添加新物品")+' ♡</h2><form class="form" id="item-form"><label class="field">物品名称 *<input name="name" maxlength="100" required placeholder="例如：USB-C 充电线" value="'+pretty(i?.name||"")+'"></label><label class="field">分类<select name="category">'+categoryOptions(i?.category||"其他")+'</select></label><label class="field">收纳位置<select name="locationId">'+locationOptions(locationId)+'</select></label><div class="row"><label class="field">数量<input name="quantity" type="number" min="0" step="1" required value="'+(i?.quantity??1)+'"></label><label class="field">单位<input name="unit" maxlength="20" placeholder="件 / 个 / 瓶" value="'+pretty(i?.unit||"件")+'"></label></div><label class="field" style="display:flex;flex-direction:row;align-items:center"><input name="consumable" type="checkbox" '+(i?.consumable?'checked':'')+' style="width:auto">这是消耗品（需要库存提醒）</label><label class="field">最低库存提醒阈值<input name="minQuantity" type="number" min="0" step="1" value="'+(i?.minQuantity??1)+'"></label><label class="field">可见范围<select name="visibility"><option value="shared">Shared · 共享</option><option value="private" '+(i?.visibility==="private"?"selected":"")+'>Private · 私人</option></select></label><label class="field">备注<textarea name="notes" rows="2" maxlength="500" placeholder="颜色、规格、用途等">'+pretty(i?.notes||"")+'</textarea></label><div class="modal-actions">'+(i?'<button type="button" class="secondary danger" data-act="delete-item" data-id="'+i.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button class="primary" type="submit">保存物品</button></div></form>';
  }else if(modal.type==="location"){
   const l=state.locations.find(x=>x.id===modal.id);
   html='<h2>'+(l?"修改收纳位置":"新建收纳位置")+' ♡</h2><form id="location-form" class="form"><label class="field">名称 *<input name="name" maxlength="70" required placeholder="例如：卧室 / 衣柜 A / 白色收纳盒" value="'+pretty(l?.name||"")+'"></label><label class="field">图标（一个 emoji）<input name="icon" maxlength="10" placeholder="🗄️" value="'+pretty(l?.icon||"📦")+'"></label><label class="field">柜体编号<input name="label" maxlength="40" value="'+pretty(l?.label||"")+'"></label><label class="field">地图区域<input name="mapBounds" placeholder="左 上 宽 高，例如 10 10 20 25" value="'+pretty(l?.mapBounds?.join(" ")||"")+'"><small>四个数值均为图中百分比。以左上角为原点。</small></label><label class="field">放在哪个位置里？<select name="parentId">'+locationOptions(l?.parentId??modal.parent??"",l?.id||"")+'</select></label><p class="hint">根位置请选择「待整理 / 未指定」，表示它直接在家里。修改盒子的父级位置，会自动更新盒内物品的完整路径。</p><div class="modal-actions">'+(l?'<button type="button" class="secondary danger" data-act="delete-location" data-id="'+l.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button type="submit" class="primary">保存位置</button></div></form>';
@@ -133,7 +166,7 @@ function renderModal(){
 function track(type,item,delta=0){state.history.push({id:uuid(),type,itemId:item.id,name:item.name,delta,at:new Date().toISOString()});if(state.history.length>500)state.history.splice(0,state.history.length-500);}
 function submitItem(form){
  const fd=new FormData(form),name=String(fd.get("name")||"").trim(),quantity=Number(fd.get("quantity")),minQuantity=Number(fd.get("minQuantity"));if(!name||!Number.isSafeInteger(quantity)||quantity<0||!Number.isSafeInteger(minQuantity)||minQuantity<0){toast("请检查名称和数量");return;}
- const old=state.items.find(x=>x.id===modal.id),item={id:old?.id||uuid(),name,category:String(fd.get("category")||"其他"),locationId:String(fd.get("locationId")||"")||null,quantity,unit:String(fd.get("unit")||"件").trim()||"件",consumable:fd.has("consumable"),minQuantity,notes:String(fd.get("notes")||"").trim(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+ const old=state.items.find(x=>x.id===modal.id),item={...old,id:old?.id||uuid(),name,visibility:fd.get("visibility")==="private"?"private":"shared",category:String(fd.get("category")||"其他"),locationId:String(fd.get("locationId")||"")||null,quantity,unit:String(fd.get("unit")||"件").trim()||"件",consumable:fd.has("consumable"),minQuantity,notes:String(fd.get("notes")||"").trim(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
  if(old)state.items=state.items.map(x=>x.id===item.id?item:x);else state.items.push(item);
  track(old?"edit":"add",item);save();modal=null;render();toast("物品已保存 ♡");
 }
@@ -159,18 +192,37 @@ async function doImport(file){
  const raw=JSON.parse(await file.text());if(!raw||!Array.isArray(raw.items)||!Array.isArray(raw.locations))throw new Error("备份格式不正确");
  if(!confirm("导入将覆盖当前浏览器的全部物品和位置。确定继续吗？"))return;
  const ids=new Set();
- const locations=raw.locations.map(l=>{if(typeof l.id!=="string"||!l.id||ids.has(l.id))throw Error("位置数据无效");ids.add(l.id);return {id:l.id,name:String(l.name||"未命名"),icon:String(l.icon||"📦"),parentId:l.parentId||null};});
+ const locations=raw.locations.map(l=>{if(typeof l.id!=="string"||!/^[-_a-zA-Z0-9]{1,120}$/.test(l.id)||ids.has(l.id))throw Error("位置数据无效");ids.add(l.id);return {id:l.id,name:String(l.name||"未命名"),icon:String(l.icon||"📦"),label:String(l.label||""),mapBounds:mapBounds(Array.isArray(l.mapBounds)?l.mapBounds.join(" "):""),parentId:l.parentId||null};});
  for(const l of locations){if(l.parentId&&!ids.has(l.parentId))l.parentId=null;const seen=new Set();let x=l;while(x){if(seen.has(x.id))throw Error("位置包含循环引用");seen.add(x.id);x=locations.find(y=>y.id===x.parentId);}}
  const itemIds=new Set();
- const items=raw.items.map(i=>{if(typeof i.id!=="string"||!i.id||itemIds.has(i.id))throw Error("物品数据无效");itemIds.add(i.id);return {id:i.id,name:String(i.name||"未命名"),category:String(i.category||"其他"),locationId:ids.has(i.locationId)?i.locationId:null,quantity:Math.max(0,Math.floor(Number(i.quantity)||0)),unit:String(i.unit||"件"),consumable:Boolean(i.consumable),minQuantity:Math.max(0,Math.floor(Number(i.minQuantity)||0)),notes:String(i.notes||""),createdAt:i.createdAt||new Date().toISOString(),updatedAt:i.updatedAt||new Date().toISOString()};});
- state={version:4,locations,items,history:[],shopping:Array.isArray(raw.shopping)?raw.shopping.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],chores:Array.isArray(raw.chores)?raw.chores.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],wellness:Array.isArray(raw.wellness)?raw.wellness.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],tasks:Array.isArray(raw.tasks)?raw.tasks:[],pets:Array.isArray(raw.pets)?raw.pets:[],petRecords:Array.isArray(raw.petRecords)?raw.petRecords:[],subscriptions:Array.isArray(raw.subscriptions)?raw.subscriptions:[],activity:Array.isArray(raw.activity)?raw.activity:[],finds:Array.isArray(raw.finds)?raw.finds:[]};save();view="home";modal=null;render();toast("导入成功 ♡");
+ const items=raw.items.map(i=>{if(typeof i.id!=="string"||!/^[-_a-zA-Z0-9]{1,120}$/.test(i.id)||itemIds.has(i.id))throw Error("物品数据无效");itemIds.add(i.id);return {id:i.id,name:String(i.name||"未命名"),visibility:i.visibility==="private"?"private":"shared",category:String(i.category||"其他"),locationId:ids.has(i.locationId)?i.locationId:null,quantity:Math.max(0,Math.floor(Number(i.quantity)||0)),unit:String(i.unit||"件"),consumable:Boolean(i.consumable),minQuantity:Math.max(0,Math.floor(Number(i.minQuantity)||0)),notes:String(i.notes||""),createdAt:i.createdAt||new Date().toISOString(),updatedAt:i.updatedAt||new Date().toISOString()};});
+ state={version:4,locations,items,floorPlan:typeof raw.floorPlan==="string"?raw.floorPlan:undefined,history:Array.isArray(raw.history)?raw.history:[],shopping:Array.isArray(raw.shopping)?raw.shopping.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],chores:Array.isArray(raw.chores)?raw.chores.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],wellness:Array.isArray(raw.wellness)?raw.wellness.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],tasks:Array.isArray(raw.tasks)?raw.tasks:[],pets:Array.isArray(raw.pets)?raw.pets:[],petRecords:Array.isArray(raw.petRecords)?raw.petRecords:[],subscriptions:Array.isArray(raw.subscriptions)?raw.subscriptions:[],activity:Array.isArray(raw.activity)?raw.activity:[],finds:Array.isArray(raw.finds)?raw.finds:[]};save();view="home";modal=null;render();toast("导入成功 ♡");
  }catch(e){toast("导入失败："+e.message);}
 }
 document.addEventListener("input",e=>{
  if(e.target.matches("[data-find-search]")){const caret=e.target.selectionStart;collection.input(e);render();const fresh=document.querySelector("[data-find-search]");fresh?.focus();fresh?.setSelectionRange(caret,caret);return;}
  if(e.target.id==="global-search"){searchTerm=e.target.value; if(searchTerm&&!(["items","stock","unplaced"].includes(view))){view="items";locationFilter="";categoryFilter="";};render(true);}
 });
-document.addEventListener("change",e=>{
+document.addEventListener("change",async e=>{
+ if(e.target.id==="map-layout-file"){
+  const file=e.target.files[0];
+  if(!file)return;
+  const account=cloud.user()?.id;
+  try{
+   if(file.size>1500000)throw new Error("户型文件过大");
+   const layout=readLayout(JSON.parse(await file.text()));
+   if(account!==cloud.user()?.id)return;
+   const known=new Set(state.locations.map(location=>location.id));
+   const additions=layout.locations.filter(location=>!known.has(location.id));
+   const destination=sync.connected?"当前家庭的两位成员":"当前浏览器";
+   if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置。已有位置和物品会保留。继续吗？"))return;
+   state.floorPlan=layout.floorPlan;
+   state.locations.push(...additions);
+   save();toast("户型和收纳位置已导入");
+  }catch(error){toast("导入失败："+error.message);}
+  finally{e.target.value="";}
+  return;
+ }
  if(e.target.id==="location-filter"){locationFilter=e.target.value;render();}
  if(e.target.id==="category-filter"){categoryFilter=e.target.value;render();}
  if(e.target.id==="sort"){sortBy=e.target.value;render();}
@@ -179,14 +231,42 @@ document.addEventListener("change",e=>{
   const file=e.target.files[0];
   if(!file)return;
   if(!["image/svg+xml","image/png","image/jpeg","image/webp"].includes(file.type)||file.size>1000000){toast("请选择小于 1 MB 的 SVG、PNG、JPEG 或 WebP");return;}
-  const reader=new FileReader();
-  reader.onload=()=>{state.floorPlan=reader.result;save();toast("户型图已导入");};
+  const reader=new FileReader(),account=cloud.user()?.id;
+  reader.onload=()=>{if(account!==cloud.user()?.id)return;state.floorPlan=reader.result;save();toast("户型图已导入");};
   reader.onerror=()=>toast("户型图读取失败");
   reader.readAsDataURL(file);
  }
  if(e.target.id==="import-file")doImport(e.target.files[0]);
 });
-document.addEventListener("submit",e=>{
+document.addEventListener("submit",async e=>{
+ if(e.target.id==="cloud-login"){
+  e.preventDefault();
+  const fields=new FormData(e.target);
+  const email=fields.get("email"),password=fields.get("password");
+  const usePassword=e.submitter?.value==="password";
+  for(const button of e.target.querySelectorAll("button"))button.disabled=true;
+  try {
+   if(usePassword){
+    await cloud.signIn(email,password);
+    await connectCloud();
+   }else{
+    await cloud.sendLink(email);
+    cloudMessage="请在此设备打开邮箱中的登录链接。";
+   }
+  }catch{
+   cloudMessage=usePassword?"登录失败，请检查邮箱和密码。":"发送失败。请确认此邮箱已加入家庭，并稍后重试。";
+  }
+  render();
+  return;
+ }
+ if(e.target.id==="cloud-migrate"){
+  e.preventDefault();
+  if(!sync.connected)return;
+  const visibility=new FormData(e.target).get("visibility");
+  try {state=sync.importLegacy(load(),visibility);render();}
+  catch {toast("迁移暂缓，请检查本机存储空间。");}
+  return;
+ }
  if(collection.submit(e))return;
  if(planner.submit(e))return;
  if(wellness.submit(e))return;
@@ -211,6 +291,7 @@ document.addEventListener("click",e=>{
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
  if(act==="add-location"){modal={type:"location",parent:parent??activeLocation};renderModal();}
  if(act==="edit-location"){modal={type:"location",id};renderModal();}
+ if(act==="map-import-layout")document.getElementById("map-layout-file")?.click();
  if(act==="map-import")document.getElementById("map-file")?.click();
  if(act==="map-select"){mapSelection=id||null;view="map";searchTerm="";modal=null;render();document.querySelector(".map-highlight:last-of-type")?.scrollIntoView({block:"nearest"});}
  if(act==="open-location"){activeLocation=id||null;render();}
@@ -218,10 +299,19 @@ document.addEventListener("click",e=>{
  if(act==="quantity"){const i=state.items.find(x=>x.id===id);if(!i)return;i.quantity=Math.max(0,Number(i.quantity)+Number(delta));i.updatedAt=new Date().toISOString();track("quantity",i,Number(delta));save();render();}
  if(act==="delete-item"){const i=state.items.find(x=>x.id===id);if(i&&confirm('确定删除「'+i.name+'」吗？')){state.items=state.items.filter(x=>x.id!==id);save();modal=null;render();toast("物品已删除");}}
  if(act==="delete-location"){const l=state.locations.find(x=>x.id===id);if(!l)return;const descendantsSet=descendants(id);const n=state.items.filter(x=>descendantsSet.has(x.locationId)).length;if(confirm('删除「'+l.name+'」及其全部下级位置？其中 '+n+' 件物品将转到待整理，物品不会删除。')){state.locations=state.locations.filter(x=>!descendantsSet.has(x.id));state.items.forEach(x=>{if(descendantsSet.has(x.locationId))x.locationId=null;});if(activeLocation&&descendantsSet.has(activeLocation))activeLocation=null;save();modal=null;render();toast("位置已删除，物品已保留");}}
+ if(act==="cloud-logout"){sync.stop();cloud.forget();state=load();cloudMessage="已退出登录";render();}
+ if(act==="cloud-sync"){if(sync.connected)sync.sync();else connectCloud();}
+ if(act==="cloud-reload"&&sync.connected&&confirm("重新加载会放弃尚未同步的本机编辑。继续吗？")){
+  sync.reload().catch(()=>toast("暂时无法加载云端数据"));
+ }
  if(act==="export")doExport();
  if(act==="import")document.getElementById("import-file")?.click();
  if(act==="clear"){if(confirm("此操作会永久清空当前设备的所有物品及收纳位置。请先导出备份。确认清空？")&&confirm("再次确认：删除所有本地数据？")){state=initial();save();view="home";render();toast("数据已清空");}}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(modal){modal=null;render();}else{collection.close();planner.close();extras.close();wellness.close();}}});
-window.addEventListener("storage",e=>{if(e.key===STORAGE_KEY){state=load();render();toast("本机数据已刷新");}});
+window.addEventListener("storage",e=>{if(e.key===STORAGE_KEY&&!sync.connected){state=load();render();toast("本机数据已刷新");}});
 render();
+
+window.addEventListener("online",()=>sync.sync());
+setInterval(()=>{if(!document.hidden)sync.sync();},20000);
+connectCloud();
