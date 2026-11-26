@@ -6,6 +6,11 @@ export function mapBounds(value) {
   left + width <= 100 && top + height <= 100 ? bounds : null;
 }
 
+export function diagramImage(value) {
+ return typeof value==="string" && value.length<=1333400 &&
+  /^data:image\/(?:svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(value) ? value : "";
+}
+
 export function storageMap({locations, background, selection, ancestors, itemCards, esc}) {
  const chain = ancestors(selection);
  const highlighted = new Set(chain.map(location => location.id));
@@ -21,6 +26,8 @@ export function storageMap({locations, background, selection, ancestors, itemCar
  }).join("");
  const validBackground = /^data:image\/(?:svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(background || "");
  const selected = chain.at(-1);
+ const diagramOwner = chain.findLast(location=>diagramImage(location.diagram));
+ const childLocations = locations.filter(location=>location.parentId===selected?.id);
  const image = validBackground ? `<img src="${esc(background)}" alt="Floor plan · 家庭布局">` : "";
  const choices = locations.map(location =>
   `<option value="${esc(location.id)}" ${location.id === selection ? "selected" : ""}>${esc(ancestors(location.id).map(part => [part.label, part.name].filter(Boolean).join(" ")).join(" → "))}</option>`
@@ -37,7 +44,12 @@ export function storageMap({locations, background, selection, ancestors, itemCar
     <button class="primary" data-act="add-item" data-location="${esc(selected.id)}">＋ 添加物品</button></div>
     <div class="toolbar"><button class="secondary" data-act="edit-location" data-id="${esc(selected.id)}">编辑位置</button>
     <button class="secondary" data-act="add-location" data-parent="${esc(selected.id)}">＋ 子位置</button>
-    ${locations.filter(location => location.parentId === selected.id).map(location =>
+    <button class="secondary" data-act="diagram-upload" data-id="${esc(selected.id)}">${diagramOwner===selected?"更换柜体示意图":"添加柜体示意图"}</button></div>
+    ${diagramOwner ? `<figure class="storage-map cabinet-diagram"><img src="${esc(diagramOwner.diagram)}" alt="${esc(diagramOwner.name)} 的柜体编号示意图"><figcaption>${esc(diagramOwner.name)} · 编号示意图${selected!==diagramOwner&&selected.label ? ` · 当前格 ${esc(selected.label)}` : ""}</figcaption></figure>` : ""}
+    <div class="toolbar">${chain.slice(0,-1).map(location=>
+     `<button class="secondary" data-act="map-select" data-id="${esc(location.id)}">${esc(location.label||location.name)}</button>`
+    ).join("")}
+    ${childLocations.map(location =>
      `<button class="secondary" data-act="map-select" data-id="${esc(location.id)}">${esc(location.label || location.name)}</button>`
     ).join("")}</div>${itemCards || '<p class="hint">此位置还没有物品。</p>'}` : ""}
   </div>`;
@@ -56,7 +68,7 @@ export function readLayout(raw) {
   const bounds = Array.isArray(location.mapBounds) ? mapBounds(location.mapBounds.join(" ")) : null;
   if (location.mapBounds && !bounds) throw new Error("户型坐标无效");
   ids.add(id);
-  return {id,parentId:parentId||null,name,label:String(label||""),icon:String(icon||"📦"),mapBounds:bounds};
+  return {id,parentId:parentId||null,name,label:String(label||""),icon:String(icon||"📦"),mapBounds:bounds,diagram:diagramImage(location.diagram)};
  });
  return {floorPlan:raw.floorPlan,locations};
 }

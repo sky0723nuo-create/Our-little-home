@@ -1,6 +1,6 @@
 import { createCloud, recordsFor } from "./home-cloud.js";
 import { createSync } from "./cloud-sync.js";
-import { mapBounds, readLayout, storageMap } from "./storage-map.js";
+import { diagramImage, mapBounds, readLayout, storageMap } from "./storage-map.js?v=diagram";
 import { createCollection } from "./collection.js?v=v3";
 import { createPlanner } from "./planner-v2.js?v=v3";
 import { createWellness } from "./wellness.js?v=v3";
@@ -48,7 +48,32 @@ layoutPicker.type="file";
 layoutPicker.accept=".json,application/json";
 layoutPicker.id="map-layout-file";
 layoutPicker.hidden=true;
-document.body.append(layoutPicker);
+const diagramPicker=document.createElement("input");
+diagramPicker.type="file";
+diagramPicker.accept="image/svg+xml,image/png,image/jpeg,image/webp";
+diagramPicker.hidden=true;
+document.body.append(layoutPicker,diagramPicker);
+let diagramUpload;
+diagramPicker.addEventListener("change",async()=>{
+ const file=diagramPicker.files[0],upload=diagramUpload;
+ diagramPicker.value="";
+ if(!file||!upload)return;
+ try {
+  if(file.size>1000000)throw new Error("请选择小于 1 MB 的示意图");
+  const value=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(reader.result);
+   reader.onerror=()=>reject(new Error("示意图读取失败"));
+   reader.readAsDataURL(file);
+  });
+  const diagram=diagramImage(value);
+  if(!diagram)throw new Error("请选择 SVG、PNG、JPEG 或 WebP 图片");
+  const location=state.locations.find(entry=>entry.id===upload.id);
+  if(!location||cloud.user()?.id!==upload.account)throw new Error("收纳位置已变化，请重新选择");
+  location.diagram=diagram;
+  save();toast("柜体示意图已保存");
+ } catch(error){toast(error.message);}
+});
 let timeout; function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(timeout);timeout=setTimeout(()=>toastEl.classList.remove("show"),2300);}
 function ancestors(id) {
  const seen = new Set(), chain=[];
@@ -205,7 +230,7 @@ async function doImport(file){
  const raw=JSON.parse(await file.text());if(!raw||!Array.isArray(raw.items)||!Array.isArray(raw.locations))throw new Error("备份格式不正确");
  if(!confirm("导入将覆盖当前浏览器的全部物品和位置。确定继续吗？"))return;
  const ids=new Set();
- const locations=raw.locations.map(l=>{if(typeof l.id!=="string"||!/^[-_a-zA-Z0-9]{1,120}$/.test(l.id)||ids.has(l.id))throw Error("位置数据无效");ids.add(l.id);return {id:l.id,name:String(l.name||"未命名"),icon:String(l.icon||"📦"),label:String(l.label||""),mapBounds:mapBounds(Array.isArray(l.mapBounds)?l.mapBounds.join(" "):""),parentId:l.parentId||null};});
+ const locations=raw.locations.map(l=>{if(typeof l.id!=="string"||!/^[-_a-zA-Z0-9]{1,120}$/.test(l.id)||ids.has(l.id))throw Error("位置数据无效");ids.add(l.id);return {id:l.id,name:String(l.name||"未命名"),icon:String(l.icon||"📦"),label:String(l.label||""),mapBounds:mapBounds(Array.isArray(l.mapBounds)?l.mapBounds.join(" "):""),parentId:l.parentId||null,diagram:diagramImage(l.diagram)};});
  for(const l of locations){if(l.parentId&&!ids.has(l.parentId))l.parentId=null;const seen=new Set();let x=l;while(x){if(seen.has(x.id))throw Error("位置包含循环引用");seen.add(x.id);x=locations.find(y=>y.id===x.parentId);}}
  const itemIds=new Set();
  const items=raw.items.map(i=>{if(typeof i.id!=="string"||!/^[-_a-zA-Z0-9]{1,120}$/.test(i.id)||itemIds.has(i.id))throw Error("物品数据无效");itemIds.add(i.id);return {id:i.id,name:String(i.name||"未命名"),visibility:i.visibility==="private"?"private":"shared",category:String(i.category||"其他"),locationId:ids.has(i.locationId)?i.locationId:null,quantity:Math.max(0,Math.floor(Number(i.quantity)||0)),unit:String(i.unit||"件"),consumable:Boolean(i.consumable),minQuantity:Math.max(0,Math.floor(Number(i.minQuantity)||0)),notes:String(i.notes||""),createdAt:i.createdAt||new Date().toISOString(),updatedAt:i.updatedAt||new Date().toISOString()};});
@@ -244,6 +269,11 @@ document.addEventListener("change",async e=>{
    if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置。已有位置和物品会保留。继续吗？")){layoutStatus="已取消导入。";render();return;}
    state.floorPlan=layout.floorPlan;
    state.locations.push(...additions);
+   for(const location of layout.locations){
+    if(!location.diagram||!known.has(location.id))continue;
+    const existing=state.locations.find(entry=>entry.id===location.id);
+    if(!existing.diagram)existing.diagram=location.diagram;
+   }
    layoutStatus="户型已载入，新增 "+additions.length+" 个收纳位置。";
    save();toast(layoutStatus);
   }catch(error){layoutStatus="导入失败："+error.message;render();}
@@ -318,9 +348,13 @@ document.addEventListener("click",e=>{
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
  if(act==="add-location"){modal={type:"location",parent:parent??activeLocation};renderModal();}
  if(act==="edit-location"){modal={type:"location",id};renderModal();}
+ if(act==="diagram-upload"){
+  diagramUpload={id,account:cloud.user()?.id};
+  diagramPicker.click();
+ }
  if(act==="map-import-layout")layoutPicker.click();
  if(act==="map-import")document.getElementById("map-file")?.click();
- if(act==="map-select"){mapSelection=id||null;view="map";searchTerm="";modal=null;render();document.querySelector(".map-highlight:last-of-type")?.scrollIntoView({block:"nearest"});}
+ if(act==="map-select"){mapSelection=id||null;view="map";searchTerm="";modal=null;render();document.querySelector(".cabinet-diagram")?.scrollIntoView({block:"nearest"});}
  if(act==="open-location"){activeLocation=id||null;render();}
  if(act==="close"){modal=null;render();}
  if(act==="quantity"){const i=state.items.find(x=>x.id===id);if(!i)return;i.quantity=Math.max(0,Number(i.quantity)+Number(delta));i.updatedAt=new Date().toISOString();track("quantity",i,Number(delta));save();render();}
