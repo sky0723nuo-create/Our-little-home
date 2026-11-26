@@ -139,7 +139,9 @@ function settingsPage(){
  return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">可导出当前可见数据。登录后可在下方预览并迁移这台设备的旧版数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import" '+(sync.connected?'disabled':'')+'>↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3>'+cloudPanel()+'</div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">HOME V3 开发版 · 收纳地图与双人同步。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear" '+(sync.connected?'disabled':'')+'>清空本机所有数据</button></div></div>';
 }
 function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['collection','collection','Collection','收藏'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced","map"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
+let composingSearch = null;
 function render(focusSearch=false){
+ if(composingSearch?.isConnected)return;
  app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="collection"?collection.page():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="map"?storageMap({locations:state.locations,background:state.floorPlan,selection:mapSelection,ancestors,itemCards:mapSelection?state.items.filter(i=>descendants(mapSelection).has(i.locationId)).map(itemCard).join(""):"",esc:escapeHtml}):view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
  if(modal)renderModal();
  extras.showModal();
@@ -199,10 +201,23 @@ async function doImport(file){
  state={version:4,locations,items,floorPlan:typeof raw.floorPlan==="string"?raw.floorPlan:undefined,history:Array.isArray(raw.history)?raw.history:[],shopping:Array.isArray(raw.shopping)?raw.shopping.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],chores:Array.isArray(raw.chores)?raw.chores.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],wellness:Array.isArray(raw.wellness)?raw.wellness.filter(i=>i&&typeof i.id==="string"&&typeof i.name==="string"):[],tasks:Array.isArray(raw.tasks)?raw.tasks:[],pets:Array.isArray(raw.pets)?raw.pets:[],petRecords:Array.isArray(raw.petRecords)?raw.petRecords:[],subscriptions:Array.isArray(raw.subscriptions)?raw.subscriptions:[],activity:Array.isArray(raw.activity)?raw.activity:[],finds:Array.isArray(raw.finds)?raw.finds:[]};save();view="home";modal=null;render();toast("导入成功 ♡");
  }catch(e){toast("导入失败："+e.message);}
 }
+const searchSelector = "#global-search, [data-find-search]";
+document.addEventListener("compositionstart",e=>{
+ if(e.target.matches(searchSelector))composingSearch=e.target;
+});
+document.addEventListener("compositionend",e=>{
+ if(composingSearch!==e.target)return;
+ composingSearch=null;
+ updateSearch(e);
+});
 document.addEventListener("input",e=>{
+ if(e.isComposing||composingSearch===e.target)return;
+ updateSearch(e);
+});
+function updateSearch(e){
  if(e.target.matches("[data-find-search]")){const caret=e.target.selectionStart;collection.input(e);render();const fresh=document.querySelector("[data-find-search]");fresh?.focus();fresh?.setSelectionRange(caret,caret);return;}
  if(e.target.id==="global-search"){searchTerm=e.target.value; if(searchTerm&&!(["items","stock","unplaced"].includes(view))){view="items";locationFilter="";categoryFilter="";};render(true);}
-});
+}
 document.addEventListener("change",async e=>{
  if(e.target.id==="map-layout-file"){
   const file=e.target.files[0];
