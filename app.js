@@ -261,20 +261,34 @@ document.addEventListener("change",async e=>{
   const account=cloud.user()?.id;
   try{
    if(file.size>1500000)throw new Error("户型文件过大");
-   const layout=readLayout(JSON.parse(await file.text()));
+   const raw=JSON.parse(await file.text());
+   const layout=readLayout(raw);
    if(account!==cloud.user()?.id)throw new Error("登录状态已变化，请重新选择文件");
    const known=new Set(state.locations.map(location=>location.id));
    const additions=layout.locations.filter(location=>!known.has(location.id));
+   const existingById=new Map(state.locations.map(location=>[location.id,location]));
+   const previousById=new Map(raw.locations.map(location=>[location.id,location.previousPlacement]));
+   const corrections=layout.locations.filter(location=>{
+    const previous=previousById.get(location.id),existing=existingById.get(location.id);
+    return previous&&existing&&existing.name===previous.name&&
+     (existing.parentId||null)===(previous.parentId||null)&&
+     (existing.name!==location.name||(existing.parentId||null)!==location.parentId);
+   });
    const destination=sync.connected?"当前家庭的两位成员":"当前浏览器";
-   if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置。已有位置和物品会保留。继续吗？")){layoutStatus="已取消导入。";render();return;}
+   if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置，修正 "+corrections.length+" 个位置的名称或层级。已有位置和物品会保留。继续吗？")){layoutStatus="已取消导入。";render();return;}
    state.floorPlan=layout.floorPlan;
    state.locations.push(...additions);
+   for(const location of corrections){
+    const existing=existingById.get(location.id);
+    existing.name=location.name;
+    if(!location.parentId||!descendants(location.id).has(location.parentId))existing.parentId=location.parentId;
+   }
    for(const location of layout.locations){
     if(!location.diagram||!known.has(location.id))continue;
     const existing=state.locations.find(entry=>entry.id===location.id);
     if(!existing.diagram)existing.diagram=location.diagram;
    }
-   layoutStatus="户型已载入，新增 "+additions.length+" 个收纳位置。";
+   layoutStatus="户型已载入，新增 "+additions.length+" 个收纳位置"+(corrections.length?"，修正 "+corrections.length+" 个位置":"")+"。";
    save();toast(layoutStatus);
   }catch(error){layoutStatus="导入失败："+error.message;render();}
   finally{e.target.value="";}
