@@ -124,7 +124,7 @@ export function createPlanner(ctx){
  function inventoryPage(){
   const low=state().items.filter(i=>i.consumable&&Number(i.quantity)<=Number(i.minQuantity||0)).length;
   return '<div class="section-head"><h2>Inventory <small>家庭物品与收纳</small></h2><button class="primary" data-act="add-item">＋ Add Item</button></div>'+
-   '<div class="tiles v2-inventory-grid">'+[["items","inventory","Items","全部物品"],["locations","storage","Storage","房间、柜子与盒子"],["stock","supplies","Supplies","消耗品与库存"],["unplaced","sort","To Sort","待整理物品"]].map(([v,ic,en,cn])=>'<button class="tile" data-act="nav" data-view="'+v+'"><span class="tile-icon">'+ctx.icon(ic)+'</span><strong>'+en+'</strong><span class="tile-description">'+cn+'</span></button>').join("")+'</div>'+
+   '<div class="tiles v2-inventory-grid">'+[["items","inventory","Items","全部物品"],["locations","storage","Storage","房间、柜子与盒子"],["map","house","Map","按地图找柜子"],["stock","supplies","Supplies","消耗品与库存"],["unplaced","sort","To Sort","待整理物品"]].map(([v,ic,en,cn])=>'<button class="tile" data-act="nav" data-view="'+v+'"><span class="tile-icon">'+ctx.icon(ic)+'</span><strong>'+en+'</strong><span class="tile-description">'+cn+'</span></button>').join("")+'</div>'+
    (low?'<div class="notice">有 '+low+' 种消耗品达到低库存阈值。</div>':"");
  }
  function petPage(){

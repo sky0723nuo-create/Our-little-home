@@ -1,3 +1,4 @@
+import { mapBounds, storageMap } from "./storage-map.js";
 import { createCollection } from "./collection.js?v=v2-1-1";
 import { createPlanner } from "./planner-v2.js?v=v2-1-1";
 import { createWellness } from "./wellness.js?v=v2-1-1";
@@ -25,7 +26,7 @@ const extras=createHomeExtras({getState:()=>state,save,esc:escapeHtml,toast:(m)=
 const wellness=createWellness({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const planner=createPlanner({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid,icon:uiIcon});
 const collection=createCollection({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
-let shoppingTab="list";
+let shoppingTab="list", mapSelection=null;
 let timeout; function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(timeout);timeout=setTimeout(()=>toastEl.classList.remove("show"),2300);}
 function ancestors(id) {
  const seen = new Set(), chain=[];
@@ -33,7 +34,7 @@ function ancestors(id) {
  while(x && !seen.has(x.id)){seen.add(x.id);chain.unshift(x);x=state.locations.find(l=>l.id===x.parentId);}
  return chain;
 }
-function fullPath(id){return id ? ancestors(id).map(l=>l.name).join(" → ") || "待整理（位置已删除）" : "📦 待整理";}
+function fullPath(id){return id ? ancestors(id).map(l=>[l.label,l.name].filter(Boolean).join(" ")).join(" → ") || "待整理（位置已删除）" : "📦 待整理";}
 function descendants(id){const found=new Set([id]);let changed=true;while(changed){changed=false;for(const l of state.locations)if(l.parentId && found.has(l.parentId)&&!found.has(l.id)){found.add(l.id);changed=true;}}return found;}
 function locationOptions(selected,excludeId="") {
  const exclude=excludeId?descendants(excludeId):new Set();
@@ -46,7 +47,7 @@ function categoryOptions(selected=""){
 function quant(i){return (i.quantity??0)+" "+(i.unit||"件");}
 function itemCard(i) {
  const low=i.consumable && Number(i.quantity)<=Number(i.minQuantity||0);
- return '<div class="item"><div class="row" style="justify-content:space-between"><h3>'+pretty(i.name)+'</h3>'+(low?'<span class="tag">需要补货</span>':'')+'</div><div class="path">'+pretty(fullPath(i.locationId))+'</div><div class="path" style="margin-top:6px">'+pretty(i.category||"未分类")+(i.notes?" · "+pretty(i.notes):"")+'</div><div class="foot"><span class="qty '+(low?'low':'')+'">'+pretty(quant(i))+'</span><div class="qty-buttons"><button class="mini" aria-label="减少数量" data-act="quantity" data-id="'+i.id+'" data-delta="-1">−</button><button class="mini" aria-label="增加数量" data-act="quantity" data-id="'+i.id+'" data-delta="1">+</button><button class="mini" data-act="edit-item" data-id="'+i.id+'">编辑</button></div></div></div>';
+ return '<div class="item"><div class="row" style="justify-content:space-between"><h3>'+pretty(i.name)+'</h3>'+(low?'<span class="tag">需要补货</span>':'')+'</div><div class="path">'+pretty(fullPath(i.locationId))+'</div><div class="path" style="margin-top:6px">'+pretty(i.category||"未分类")+(i.notes?" · "+pretty(i.notes):"")+'</div><div class="foot"><span class="qty '+(low?'low':'')+'">'+pretty(quant(i))+'</span><div class="qty-buttons"><button class="mini" aria-label="减少数量" data-act="quantity" data-id="'+i.id+'" data-delta="-1">−</button><button class="mini" aria-label="增加数量" data-act="quantity" data-id="'+i.id+'" data-delta="1">+</button><button class="mini" data-act="edit-item" data-id="'+i.id+'">编辑</button>'+(i.locationId?'<button class="mini" data-act="map-select" data-id="'+escapeHtml(i.locationId)+'">定位</button>':'')+'</div></div></div>';
 }
 function currentItems() {
  let items=state.items.filter(i=>{
@@ -104,9 +105,9 @@ function shoppingPageV2(){return '<div class="v2-tabs shopping-tabs"><button dat
 function settingsPage(){
  return '<div class="section-head"><h2>设置 ⚙️</h2></div><div class="panel"><div class="setting-block"><h3>你的数据</h3><p class="hint">当前物品、家务、个护、宠物、生活计划和 Collection 都保存在这台设备的浏览器中，换手机不会自动同步。可使用导出/导入备份，导入将替换当前设备的数据。</p><div class="actions"><button class="primary" data-act="export">↓ 导出 JSON 备份</button><button class="secondary" data-act="import">↑ 导入备份</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-block"><h3>界面配色</h3><p class="hint">选一款更适合家的颜色，切换不会影响物品数据。</p><div class="theme-picker"><button class="theme-option" data-act="theme" data-theme="wood" aria-pressed="'+(theme==="wood")+'"><span class="theme-swatch" style="background:#b59a78"></span>原木奶油白</button><button class="theme-option" data-act="theme" data-theme="lavender" aria-pressed="'+(theme==="lavender")+'"><span class="theme-swatch" style="background:#b8a6d7"></span>柔雾淡紫</button></div></div><div class="setting-block"><h3>情侣共享 ♡</h3><div class="notice">实时共享需要配置 Supabase 数据库与两个人的登录账号。云同步尚未启用，目前不要将本地数据误认为已同步。</div></div><div class="setting-block"><h3>Recently Deleted · 最近删除</h3><button class="secondary" data-act="nav" data-view="trash">查看与恢复</button></div><div class="setting-block"><h3>关于 HOME</h3><p class="hint">版本 2.1.1 · 新增 Collection、评价与体验历史。项目开源代码可在 GitHub 查看。</p></div><div class="setting-block"><button class="secondary danger" data-act="clear">清空本机所有数据</button></div></div>';
 }
-function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['collection','collection','Collection','收藏'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
+function navBar(){return '<nav class="bottom v2-bottom" aria-label="主导航">'+[['collection','collection','Collection','收藏'],['inventory','inventory','Inventory','物品'],['add','plus','Add','添加'],['planner','planner','Planner','计划'],['shopping','shopping','Shopping','购物']].map(([v,ic,en,zh])=>'<button class="nav '+((view===v||v==="inventory"&&["items","locations","stock","unplaced","map"].includes(view))?"active":"")+(v==="add"?" v2-add-nav":"")+'" data-act="'+(v==="add"?"quick-add":"nav")+'" data-view="'+v+'"><span class="nav-icon">'+(v==="add"?'<span class="v2-plus">＋</span>':uiIcon(ic,22))+'</span><span>'+en+'</span><small>'+zh+'</small></button>').join("")+'</nav>';}
 function render(focusSearch=false){
- app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="collection"?collection.page():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
+ app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="collection"?collection.page():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="map"?storageMap({locations:state.locations,background:state.floorPlan,selection:mapSelection,ancestors,itemCards:mapSelection?state.items.filter(i=>descendants(mapSelection).has(i.locationId)).map(itemCard).join(""):"",esc:escapeHtml}):view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
  if(modal)renderModal();
  extras.showModal();
  wellness.show();
@@ -125,7 +126,7 @@ function renderModal(){
   html='<h2>'+(i?"编辑物品":"添加新物品")+' ♡</h2><form class="form" id="item-form"><label class="field">物品名称 *<input name="name" maxlength="100" required placeholder="例如：USB-C 充电线" value="'+pretty(i?.name||"")+'"></label><label class="field">分类<select name="category">'+categoryOptions(i?.category||"其他")+'</select></label><label class="field">收纳位置<select name="locationId">'+locationOptions(locationId)+'</select></label><div class="row"><label class="field">数量<input name="quantity" type="number" min="0" step="1" required value="'+(i?.quantity??1)+'"></label><label class="field">单位<input name="unit" maxlength="20" placeholder="件 / 个 / 瓶" value="'+pretty(i?.unit||"件")+'"></label></div><label class="field" style="display:flex;flex-direction:row;align-items:center"><input name="consumable" type="checkbox" '+(i?.consumable?'checked':'')+' style="width:auto">这是消耗品（需要库存提醒）</label><label class="field">最低库存提醒阈值<input name="minQuantity" type="number" min="0" step="1" value="'+(i?.minQuantity??1)+'"></label><label class="field">备注<textarea name="notes" rows="2" maxlength="500" placeholder="颜色、规格、用途等">'+pretty(i?.notes||"")+'</textarea></label><div class="modal-actions">'+(i?'<button type="button" class="secondary danger" data-act="delete-item" data-id="'+i.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button class="primary" type="submit">保存物品</button></div></form>';
  }else if(modal.type==="location"){
   const l=state.locations.find(x=>x.id===modal.id);
-  html='<h2>'+(l?"修改收纳位置":"新建收纳位置")+' ♡</h2><form id="location-form" class="form"><label class="field">名称 *<input name="name" maxlength="70" required placeholder="例如：卧室 / 衣柜 A / 白色收纳盒" value="'+pretty(l?.name||"")+'"></label><label class="field">图标（一个 emoji）<input name="icon" maxlength="10" placeholder="🗄️" value="'+pretty(l?.icon||"📦")+'"></label><label class="field">放在哪个位置里？<select name="parentId">'+locationOptions(l?.parentId??modal.parent??"",l?.id||"")+'</select></label><p class="hint">根位置请选择「待整理 / 未指定」，表示它直接在家里。修改盒子的父级位置，会自动更新盒内物品的完整路径。</p><div class="modal-actions">'+(l?'<button type="button" class="secondary danger" data-act="delete-location" data-id="'+l.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button type="submit" class="primary">保存位置</button></div></form>';
+  html='<h2>'+(l?"修改收纳位置":"新建收纳位置")+' ♡</h2><form id="location-form" class="form"><label class="field">名称 *<input name="name" maxlength="70" required placeholder="例如：卧室 / 衣柜 A / 白色收纳盒" value="'+pretty(l?.name||"")+'"></label><label class="field">图标（一个 emoji）<input name="icon" maxlength="10" placeholder="🗄️" value="'+pretty(l?.icon||"📦")+'"></label><label class="field">柜体编号<input name="label" maxlength="40" value="'+pretty(l?.label||"")+'"></label><label class="field">地图区域<input name="mapBounds" placeholder="左 上 宽 高，例如 10 10 20 25" value="'+pretty(l?.mapBounds?.join(" ")||"")+'"><small>四个数值均为图中百分比。以左上角为原点。</small></label><label class="field">放在哪个位置里？<select name="parentId">'+locationOptions(l?.parentId??modal.parent??"",l?.id||"")+'</select></label><p class="hint">根位置请选择「待整理 / 未指定」，表示它直接在家里。修改盒子的父级位置，会自动更新盒内物品的完整路径。</p><div class="modal-actions">'+(l?'<button type="button" class="secondary danger" data-act="delete-location" data-id="'+l.id+'">删除</button>':'')+'<button type="button" class="secondary" data-act="close">取消</button><button type="submit" class="primary">保存位置</button></div></form>';
  }
  app.insertAdjacentHTML("beforeend",modalBox(html));
 }
@@ -141,7 +142,10 @@ function submitLocation(form){
  if(!name){toast("请输入位置名称");return;}
  const old=state.locations.find(x=>x.id===modal.id);
  if(old && parentId && descendants(old.id).has(parentId)){toast("不能把位置移动到它自己里面");return;}
- const l={id:old?.id||uuid(),name,icon:String(fd.get("icon")||"📦").trim()||"📦",parentId,updatedAt:new Date().toISOString()};
+ const boundsInput=String(fd.get("mapBounds")||"").trim();
+ const bounds=mapBounds(boundsInput);
+ if(boundsInput&&!bounds){toast("请输入有效的地图区域百分比");return;}
+ const l={...old,id:old?.id||uuid(),name,label:String(fd.get("label")||"").trim(),mapBounds:bounds,icon:String(fd.get("icon")||"📦").trim()||"📦",parentId,updatedAt:new Date().toISOString()};
  if(old)state.locations=state.locations.map(x=>x.id===l.id?l:x);else state.locations.push(l);
  save();modal=null;render();toast("收纳位置已保存 ♡");
 }
@@ -164,12 +168,22 @@ async function doImport(file){
 }
 document.addEventListener("input",e=>{
  if(e.target.matches("[data-find-search]")){const caret=e.target.selectionStart;collection.input(e);render();const fresh=document.querySelector("[data-find-search]");fresh?.focus();fresh?.setSelectionRange(caret,caret);return;}
- if(e.target.id==="global-search"){searchTerm=e.target.value; if(searchTerm&&view==="home")view="items";render(true);}
+ if(e.target.id==="global-search"){searchTerm=e.target.value; if(searchTerm&&!(["items","stock","unplaced"].includes(view))){view="items";locationFilter="";categoryFilter="";};render(true);}
 });
 document.addEventListener("change",e=>{
  if(e.target.id==="location-filter"){locationFilter=e.target.value;render();}
  if(e.target.id==="category-filter"){categoryFilter=e.target.value;render();}
  if(e.target.id==="sort"){sortBy=e.target.value;render();}
+ if(e.target.id==="map-location"){mapSelection=e.target.value||null;render();}
+ if(e.target.id==="map-file"){
+  const file=e.target.files[0];
+  if(!file)return;
+  if(!["image/svg+xml","image/png","image/jpeg","image/webp"].includes(file.type)||file.size>1000000){toast("请选择小于 1 MB 的 SVG、PNG、JPEG 或 WebP");return;}
+  const reader=new FileReader();
+  reader.onload=()=>{state.floorPlan=reader.result;save();toast("户型图已导入");};
+  reader.onerror=()=>toast("户型图读取失败");
+  reader.readAsDataURL(file);
+ }
  if(e.target.id==="import-file")doImport(e.target.files[0]);
 });
 document.addEventListener("submit",e=>{
@@ -197,6 +211,8 @@ document.addEventListener("click",e=>{
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
  if(act==="add-location"){modal={type:"location",parent:parent??activeLocation};renderModal();}
  if(act==="edit-location"){modal={type:"location",id};renderModal();}
+ if(act==="map-import")document.getElementById("map-file")?.click();
+ if(act==="map-select"){mapSelection=id||null;view="map";searchTerm="";modal=null;render();document.querySelector(".map-highlight:last-of-type")?.scrollIntoView({block:"nearest"});}
  if(act==="open-location"){activeLocation=id||null;render();}
  if(act==="close"){modal=null;render();}
  if(act==="quantity"){const i=state.items.find(x=>x.id===id);if(!i)return;i.quantity=Math.max(0,Number(i.quantity)+Number(delta));i.updatedAt=new Date().toISOString();track("quantity",i,Number(delta));save();render();}

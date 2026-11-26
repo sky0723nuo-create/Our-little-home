@@ -175,3 +175,10 @@ body[data-theme="lavender"]{--page:#f8f7fc;--ink:#4c475b;--accent:#9581b5;--acce
  .v2-bottom .nav{font-size:9px}
  .v2-bottom .nav small{font-size:9px}
 }
+
+.storage-map{position:relative;isolation:isolate;width:min(100%,36rem);margin:1rem auto;background:var(--paper,#faf8f5);border-radius:12px}
+.storage-map:not(:has(img)){aspect-ratio:1}
+.storage-map img{display:block;width:100%;height:auto;border-radius:inherit}
+.map-region{position:absolute;display:grid;place-items:center;padding:0;border:1px solid currentColor;border-radius:3px;background:color-mix(in srgb,currentColor 10%,transparent);font-size:clamp(.63rem,2vw,.9rem);overflow:hidden}
+.storage-map:has(img) .map-region:not(:focus-visible):not(.map-highlight){background:transparent;border-color:transparent}
+.storage-map .map-highlight,.map-region:focus-visible{z-index:1;outline:2px solid currentColor;outline-offset:0;background:color-mix(in srgb,currentColor 22%,transparent)}
