@@ -42,7 +42,13 @@ const extras=createHomeExtras({getState:()=>state,save,esc:escapeHtml,toast:(m)=
 const wellness=createWellness({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
 const planner=createPlanner({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid,icon:uiIcon});
 const collection=createCollection({getState:()=>state,save,esc:escapeHtml,toast:(m)=>toast(m),uuid});
-let shoppingTab="list", mapSelection=null;
+let shoppingTab="list", mapSelection=null, layoutStatus="";
+const layoutPicker=document.createElement("input");
+layoutPicker.type="file";
+layoutPicker.accept=".json,application/json";
+layoutPicker.id="map-layout-file";
+layoutPicker.hidden=true;
+document.body.append(layoutPicker);
 let timeout; function toast(message){toastEl.textContent=message;toastEl.classList.add("show");clearTimeout(timeout);timeout=setTimeout(()=>toastEl.classList.remove("show"),2300);}
 function ancestors(id) {
  const seen = new Set(), chain=[];
@@ -143,6 +149,11 @@ let composingSearch = null;
 function render(focusSearch=false){
  if(composingSearch?.isConnected)return;
  app.innerHTML='<main class="shell">'+header()+(view==="home"?home():view==="collection"?collection.page():view==="inventory"?planner.inventoryPage():view==="planner"?planner.plannerPage():view==="trash"?planner.trashPage():view==="subscriptions"?planner.subscriptionPage():view==="map"?storageMap({locations:state.locations,background:state.floorPlan,selection:mapSelection,ancestors,itemCards:mapSelection?state.items.filter(i=>descendants(mapSelection).has(i.locationId)).map(itemCard).join(""):"",esc:escapeHtml}):view==="locations"?locationsPage():view==="settings"?settingsPage():view==="shopping"?shoppingPageV2():view==="chores"?extras.carePage():view==="wellness"?wellness.page():itemsPage())+'</main>'+navBar();
+ app.querySelector("#map-layout-file")?.remove();
+ const layoutButton=app.querySelector('[data-act="map-import-layout"]');
+ if(layoutButton&&layoutStatus){
+  layoutButton.closest(".toolbar").insertAdjacentHTML("afterend",'<p class="hint" role="status">'+pretty(layoutStatus)+'</p>');
+ }
  if(modal)renderModal();
  extras.showModal();
  wellness.show();
@@ -226,15 +237,16 @@ document.addEventListener("change",async e=>{
   try{
    if(file.size>1500000)throw new Error("户型文件过大");
    const layout=readLayout(JSON.parse(await file.text()));
-   if(account!==cloud.user()?.id)return;
+   if(account!==cloud.user()?.id)throw new Error("登录状态已变化，请重新选择文件");
    const known=new Set(state.locations.map(location=>location.id));
    const additions=layout.locations.filter(location=>!known.has(location.id));
    const destination=sync.connected?"当前家庭的两位成员":"当前浏览器";
-   if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置。已有位置和物品会保留。继续吗？"))return;
+   if(!confirm("将户型图导入到"+destination+"，并新建 "+additions.length+" 个收纳位置。已有位置和物品会保留。继续吗？")){layoutStatus="已取消导入。";render();return;}
    state.floorPlan=layout.floorPlan;
    state.locations.push(...additions);
-   save();toast("户型和收纳位置已导入");
-  }catch(error){toast("导入失败："+error.message);}
+   layoutStatus="户型已载入，新增 "+additions.length+" 个收纳位置。";
+   save();toast(layoutStatus);
+  }catch(error){layoutStatus="导入失败："+error.message;render();}
   finally{e.target.value="";}
   return;
  }
@@ -306,7 +318,7 @@ document.addEventListener("click",e=>{
  if(act==="edit-item"){modal={type:"item",id};renderModal();}
  if(act==="add-location"){modal={type:"location",parent:parent??activeLocation};renderModal();}
  if(act==="edit-location"){modal={type:"location",id};renderModal();}
- if(act==="map-import-layout")document.getElementById("map-layout-file")?.click();
+ if(act==="map-import-layout")layoutPicker.click();
  if(act==="map-import")document.getElementById("map-file")?.click();
  if(act==="map-select"){mapSelection=id||null;view="map";searchTerm="";modal=null;render();document.querySelector(".map-highlight:last-of-type")?.scrollIntoView({block:"nearest"});}
  if(act==="open-location"){activeLocation=id||null;render();}
